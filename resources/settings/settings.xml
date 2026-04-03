@@ -1,0 +1,8 @@
+<settings>
+    <setting propertyKey="@Properties.locationId" title="@Strings.settingLocation">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.locVlissingen</listEntry>
+            <listEntry value="1">@Strings.locKattendijke</listEntry>
+        </settingConfig>
+    </setting>
+</settings>

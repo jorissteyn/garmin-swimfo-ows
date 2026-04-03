@@ -1,0 +1,16 @@
+bin/
+.sdk/
+developer_key.pem
+developer_key.der
+*.prg
+*.iq
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+server/node_modules/
+server/cache/
+server/logs/
+server/.env
+server/.pid
