@@ -95,7 +95,7 @@ async function fetchTide(loc) {
   }
 
   const now = new Date();
-  const start = new Date(now.getTime() - 1 * 3600 * 1000);
+  const start = new Date(now.getTime() - 7 * 3600 * 1000);
   const end = new Date(now.getTime() + 12 * 3600 * 1000);
 
   const payload = {
@@ -204,60 +204,97 @@ function parseTide(data) {
 
   result.waterLevel = Math.round(points[nowIdx].value * 100) / 100;
 
-  if (nowIdx > 0) {
+  log(`  tide: ${points.length} points, nowIdx=${nowIdx} (${points[nowIdx].time})`);
+
+  // Find all extrema using direction-change algorithm with plateau midpoints
+  const extrema = findExtrema(points);
+  log(`  tide: found ${extrema.length} extrema`);
+
+  // Find previous and next extrema relative to now
+  let prev = null;
+  let next = null;
+  for (let i = 0; i < extrema.length; i++) {
+    if (extrema[i].epoch <= nowMs / 1000) {
+      prev = extrema[i];
+    } else if (!next) {
+      next = extrema[i];
+    }
+  }
+
+  if (prev) {
+    log(`  tide: prev ${prev.type} at ${localTime(points[prev.idx].time)} = ${prev.level.toFixed(3)}m`);
+    result.prevTideLevel = Math.round(prev.level * 100) / 100;
+    result.prevTideEpoch = Math.floor(prev.epoch);
+    result.prevTideType = prev.type;
+  }
+
+  if (next) {
+    log(`  tide: next ${next.type} at ${localTime(points[next.idx].time)} = ${next.level.toFixed(3)}m`);
+    result.nextTideLevel = Math.round(next.level * 100) / 100;
+    result.nextTideEpoch = Math.floor(next.epoch);
+    result.nextTideTime = localTime(points[next.idx].time);
+    result.nextTideType = next.type;
+  }
+
+  if (prev && next) {
+    result.tideRising = next.type === "HW";
+  } else if (nowIdx > 0) {
     result.tideRising = points[nowIdx].value > points[nowIdx - 1].value;
   }
 
-  log(`  tide: ${points.length} points, nowIdx=${nowIdx} (${points[nowIdx].time})`);
+  // Tide table: all extrema with formatted times and dates
+  result.tideTable = extrema.map((e) => ({
+    type: e.type,
+    level: Math.round(e.level * 100) / 100,
+    epoch: Math.floor(e.epoch),
+    time: localTime(points[e.idx].time),
+    date: localDate(points[e.idx].time),
+  }));
 
-  // Direction-change algorithm: track when tide direction reverses to find
-  // true extrema. For plateaus (multiple points at the same extreme value),
-  // use the midpoint of the plateau as the reported time.
-  let lastDirection = null; // "up" or "down"
-  let extremeIndex = nowIdx;
-  let extremeValue = points[nowIdx].value;
-  let plateauStart = nowIdx; // first index at the current extreme value
+  return result;
+}
 
-  for (let i = nowIdx + 1; i < points.length; i++) {
+function findExtrema(points) {
+  const extrema = [];
+  let dir = null;
+  let extIdx = 0;
+  let extVal = points[0].value;
+  let platStart = 0;
+
+  for (let i = 1; i < points.length; i++) {
     const curr = points[i].value;
     const prev = points[i - 1].value;
 
     if (curr > prev) {
-      if (lastDirection === "down") {
-        // Direction changed down→up: we passed a low tide
-        // Use midpoint of plateau for the reported time
-        const midIdx = Math.floor((plateauStart + extremeIndex) / 2);
-        log(`  tide: LW at ${points[midIdx].time} = ${extremeValue.toFixed(3)}m (plateau ${plateauStart}-${extremeIndex})`);
-        result.nextTideLevel = Math.round(extremeValue * 100) / 100;
-        result.nextTideTime = localTime(points[midIdx].time);
-        result.nextTideType = "LW";
-        break;
+      if (dir === "down") {
+        const midIdx = Math.floor((platStart + extIdx) / 2);
+        extrema.push({
+          type: "LW", idx: midIdx, level: extVal,
+          epoch: new Date(points[midIdx].time).getTime() / 1000,
+        });
       }
-      lastDirection = "up";
-      plateauStart = i;
-      extremeIndex = i;
-      extremeValue = curr;
+      dir = "up";
+      platStart = i;
+      extIdx = i;
+      extVal = curr;
     } else if (curr < prev) {
-      if (lastDirection === "up") {
-        // Direction changed up→down: we passed a high tide
-        const midIdx = Math.floor((plateauStart + extremeIndex) / 2);
-        log(`  tide: HW at ${points[midIdx].time} = ${extremeValue.toFixed(3)}m (plateau ${plateauStart}-${extremeIndex})`);
-        result.nextTideLevel = Math.round(extremeValue * 100) / 100;
-        result.nextTideTime = localTime(points[midIdx].time);
-        result.nextTideType = "HW";
-        break;
+      if (dir === "up") {
+        const midIdx = Math.floor((platStart + extIdx) / 2);
+        extrema.push({
+          type: "HW", idx: midIdx, level: extVal,
+          epoch: new Date(points[midIdx].time).getTime() / 1000,
+        });
       }
-      lastDirection = "down";
-      plateauStart = i;
-      extremeIndex = i;
-      extremeValue = curr;
+      dir = "down";
+      platStart = i;
+      extIdx = i;
+      extVal = curr;
     } else {
-      // curr == prev: plateau, extend the range
-      extremeIndex = i;
+      extIdx = i;
     }
   }
 
-  return result;
+  return extrema;
 }
 
 function parseWaterTemp(data) {
@@ -285,6 +322,15 @@ function localTime(ts) {
     return d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", hour12: false });
   } catch {
     return "??:??";
+  }
+}
+
+function localDate(ts) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "long" });
+  } catch {
+    return "???";
   }
 }
 

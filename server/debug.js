@@ -130,10 +130,23 @@ for (const [loc, types] of Object.entries(byLocation)) {
 
   console.log(`\n  ${BOLD}${locName.toUpperCase()}${RESET}\n`);
 
-  // ── Glance ──
+  // ── Water level (API + interpolated) ──
   const rising = tide.tideRising;
   const dir = rising != null ? (rising ? "Opk" : "Afg") : "---";
-  const lvl = tide.waterLevel != null ? `${tide.waterLevel.toFixed(2)}m` : "--";
+  const apiLvl = tide.waterLevel != null ? `${tide.waterLevel.toFixed(2)}m` : "--";
+  let interpLvl = "--";
+  if (tide.prevTideEpoch && tide.nextTideEpoch && tide.prevTideLevel != null && tide.nextTideLevel != null) {
+    const now = Date.now() / 1000;
+    const span = tide.nextTideEpoch - tide.prevTideEpoch;
+    if (span > 0) {
+      let t = (now - tide.prevTideEpoch) / span;
+      t = Math.max(0, Math.min(1, t));
+      const cosInterp = (1 - Math.cos(t * Math.PI)) / 2;
+      const interp = tide.prevTideLevel + (tide.nextTideLevel - tide.prevTideLevel) * cosInterp;
+      interpLvl = `${interp.toFixed(2)}m`;
+    }
+  }
+  const lvl = interpLvl !== "--" ? interpLvl : apiLvl;
   const wt = watertemp.waterTemp != null ? `w${Math.round(watertemp.waterTemp)}\u00b0` : "";
   const at = weather.airTemp != null ? `${Math.round(weather.airTemp)}\u00b0` : "";
   const ws = weather.windSpeed != null ? `${Math.round(weather.windSpeed)}km/h` : "";
@@ -145,6 +158,39 @@ for (const [loc, types] of Object.entries(byLocation)) {
     center(`${BOLD}${glanceLine1}${RESET}`, IW),
     center(`${DIM}${glanceLine2}${RESET}`, IW),
   ], W));
+
+  // ── Tide debug ──
+  const prevInfo = tide.prevTideEpoch
+    ? `${tide.prevTideType} ${tide.prevTideLevel?.toFixed(2)}m @ ${new Date(tide.prevTideEpoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`
+    : `${DIM}none${RESET}`;
+  const nextInfo = tide.nextTideEpoch
+    ? `${tide.nextTideType} ${tide.nextTideLevel?.toFixed(2)}m @ ${new Date(tide.nextTideEpoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`
+    : `${DIM}none${RESET}`;
+
+  const tideDataLines = [
+    `  API level:    ${BOLD}${apiLvl}${RESET}`,
+    `  Interpolated: ${BOLD}${interpLvl}${RESET}`,
+    `  Prev extremum: ${prevInfo}`,
+    `  Next extremum: ${nextInfo}`,
+  ];
+  if (Array.isArray(tide.tideTable) && tide.tideTable.length > 0) {
+    tideDataLines.push("");
+    const nowSec = Date.now() / 1000;
+    let lastDate = "";
+    for (const e of tide.tideTable) {
+      const dateStr = e.date || "";
+      if (dateStr && dateStr !== lastDate) {
+        tideDataLines.push(`  ${BOLD}${dateStr}${RESET}`);
+        lastDate = dateStr;
+      }
+      const past = e.epoch < nowSec;
+      const arrow = e.type === "HW" ? `${GREEN}\u25b2${RESET}` : `${RED}\u25bc${RESET}`;
+      const c = past ? DIM : "";
+      const r = past ? RESET : "";
+      tideDataLines.push(`    ${c}${arrow} ${e.type} ${(e.level ?? 0).toFixed(2).padStart(6)}m  ${e.time}${r}`);
+    }
+  }
+  console.log(box("Tide data", tideDataLines, W));
 
   // ── Page 1: Tide ──
   const arrowChar = rising != null ? (rising ? `${GREEN}\u25b2${RESET}` : `${RED}\u25bc${RESET}`) : " ";
