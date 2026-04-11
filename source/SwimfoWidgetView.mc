@@ -113,6 +113,15 @@ class SwimfoWidgetView extends WatchUi.View {
             dc.drawText(w / 2, nextY, Graphics.FONT_TINY, nextStr,
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
+
+        // Spring/neap tide indicator
+        var moonLabelVal = strVal(data, "moonLabel");
+        if (moonLabelVal != null) {
+            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+            var moonY = h * 7 / 10 + dc.getFontHeight(Graphics.FONT_TINY) + 2;
+            dc.drawText(w / 2, moonY, Graphics.FONT_XTINY, moonLabelVal,
+                Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     // Cosine interpolation between previous and next tide extrema.

@@ -5,10 +5,11 @@ Garmin Connect IQ widget for open water swimming conditions in the Netherlands. 
 ## Features
 
 - **Glance view** -- compact summary in the widget carousel: tide direction, water level, water temp, air temp, wind
-- **Tide page** -- rising (OPK) or falling (AFG) with current water level in meters (NAP), next high water (HW) or low water (LW) with level and time
+- **Tide page** -- rising (Opkomend) or falling (Afgaand) with cosine-interpolated water level in meters (NAP), next high water (HW) or low water (LW) with level and time, springtij/doodtij indicator and moon phase
+- **Tide table** -- tap the tide page to see a scrollable table of all upcoming HW/LW times grouped by date
 - **Water page** -- current sea surface temperature in °C
-- **Weather page** -- air temperature and wind speed
-- **Sync page** -- last data sync time
+- **Weather page** -- air temperature and wind speed with Beaufort scale
+- **Sync page** -- last data sync time, tap to trigger manual refresh
 - **Location selection** -- configurable from the watch or Garmin Connect app
 
 ### Widget pages
@@ -88,12 +89,15 @@ Swimfo uses two free public APIs -- no API keys required:
 | Wind speed, air temp | [Open-Meteo](https://open-meteo.com/) |
 | Water level (tide)   | [Rijkswaterstaat DDL](https://rijkswaterstaat.github.io/wm-ws-dl/) |
 | Water temperature    | [Rijkswaterstaat DDL](https://rijkswaterstaat.github.io/wm-ws-dl/) |
+| Moon phase / spring tide | Calculated from lunar synodic cycle (no API) |
+
+More information about Dutch tides: [Rijkswaterstaat - Getij](https://www.rijkswaterstaat.nl/water/waterdata/getij#ritme-van-eb-en-vloed)
 
 ## Development
 
 ### Prerequisites
 
-- [Garmin Connect IQ SDK](https://developer.garmin.com/connect-iq/sdk/) 8.x
+- [Garmin Connect IQ SDK](https://developer.garmin.com/connect-iq/sdk/) 8.x ([API docs](https://developer.garmin.com/connect-iq/api-docs/), [programmer's guide](https://developer.garmin.com/connect-iq/connect-iq-basics/))
 - Node.js 18+
 - OpenSSL (for key generation)
 - Make

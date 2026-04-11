@@ -43,7 +43,8 @@ class SwimfoService extends System.ServiceDelegate {
                         "waterLevel", "tideRising",
                         "prevTideLevel", "prevTideEpoch", "prevTideType",
                         "nextTideLevel", "nextTideEpoch", "nextTideTime",
-                        "nextTideType", "tideTable"] as Lang.Array<Lang.String>;
+                        "nextTideType", "tideTable",
+                        "moonLabel"] as Lang.Array<Lang.String>;
             for (var i = 0; i < keys.size(); i++) {
                 var v = d[keys[i]];
                 if (v != null) {

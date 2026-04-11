@@ -81,6 +81,27 @@ function toBeaufort(kmh) {
   return "12";
 }
 
+function getMoonInfo() {
+  const refNewMoon = new Date("2000-01-06T18:14:00Z").getTime();
+  const synodicMonth = 29.530588853;
+  const daysSinceRef = (Date.now() - refNewMoon) / (24 * 3600 * 1000);
+  const moonAge = ((daysSinceRef % synodicMonth) + synodicMonth) % synodicMonth;
+  const fullMoonAge = synodicMonth / 2;
+  const firstQuarter = synodicMonth / 4;
+  const lastQuarter = synodicMonth * 3 / 4;
+  const nearNew = Math.min(moonAge, synodicMonth - moonAge);
+  const nearFull = Math.abs(moonAge - fullMoonAge);
+  const nearSpring = Math.min(nearNew, nearFull);
+  const nearQ1 = Math.abs(moonAge - firstQuarter);
+  const nearQ3 = Math.abs(moonAge - lastQuarter);
+  let label;
+  if (nearSpring < 2.5) label = "springtij";
+  else if (nearQ1 < 2.5 || nearQ3 < 2.5) label = "doodtij";
+  else if (nearSpring <= 7) label = `${Math.round(nearSpring)}d tot springtij`;
+  else label = null;
+  return { moonLabel: label };
+}
+
 const DIM = "\x1b[2m";
 const BOLD = "\x1b[1m";
 const BLUE = "\x1b[34m";
@@ -192,6 +213,10 @@ for (const [loc, types] of Object.entries(byLocation)) {
   }
   console.log(box("Tide data", tideDataLines, W));
 
+  // ── Spring/neap tide (computed live) ──
+  const moon = getMoonInfo();
+  const moonLine = moon.moonLabel || "";
+
   // ── Page 1: Tide ──
   const arrowChar = rising != null ? (rising ? `${GREEN}\u25b2${RESET}` : `${RED}\u25bc${RESET}`) : " ";
   const tideLabel = rising != null ? (rising ? "Opkomend" : "Afgaand") : "---";
@@ -199,16 +224,20 @@ for (const [loc, types] of Object.entries(byLocation)) {
     ? `${tide.nextTideType} ${tide.nextTideLevel?.toFixed(2) || "--"}m  ${tide.nextTideTime || ""}`
     : `${DIM}geen getijdata${RESET}`;
 
-  console.log(box("Page 1: Tide", [
+  const tidePage = [
     center(`${DIM}${locName.toUpperCase()}${RESET}`, IW),
     "",
     center(`${arrowChar}  ${BOLD}${lvl}${RESET}`, IW),
     center(`${DIM}${tideLabel}${RESET}`, IW),
     "",
     center(nextLine, IW),
-    "",
-    dots(0, 4, IW),
-  ], W));
+  ];
+  if (moonLine) {
+    tidePage.push(center(`${DIM}${moonLine}${RESET}`, IW));
+  }
+  tidePage.push("");
+  tidePage.push(dots(0, 4, IW));
+  console.log(box("Page 1: Tide", tidePage, W));
 
   // ── Page 2: Water ──
   const waterVal = watertemp.waterTemp != null

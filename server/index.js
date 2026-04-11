@@ -96,7 +96,7 @@ async function fetchTide(loc) {
 
   const now = new Date();
   const start = new Date(now.getTime() - 7 * 3600 * 1000);
-  const end = new Date(now.getTime() + 12 * 3600 * 1000);
+  const end = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
 
   const payload = {
     Locatie: { Code: loc.rwsCode },
@@ -334,6 +334,48 @@ function localDate(ts) {
   }
 }
 
+// ── Moon phase ──────────────────────────────────────────────
+
+function getMoonInfo() {
+  // Reference new moon: Jan 6, 2000 18:14 UTC
+  const refNewMoon = new Date("2000-01-06T18:14:00Z").getTime();
+  const synodicMonth = 29.530588853; // days
+  const now = Date.now();
+
+  const daysSinceRef = (now - refNewMoon) / (24 * 3600 * 1000);
+  const moonAge = ((daysSinceRef % synodicMonth) + synodicMonth) % synodicMonth;
+
+  // Key phases (in days from new moon)
+  const fullMoonAge = synodicMonth / 2; // ~14.77
+  const firstQuarter = synodicMonth / 4; // ~7.38
+  const lastQuarter = synodicMonth * 3 / 4; // ~22.15
+
+  // Springtij peaks ~2 days after new/full moon.
+  // Find distance to nearest new or full moon.
+  const fromNewMoon = moonAge;
+  const toNewMoon = synodicMonth - moonAge;
+  const nearNew = Math.min(fromNewMoon, toNewMoon);
+  const nearFull = Math.abs(moonAge - fullMoonAge);
+  const nearSpring = Math.min(nearNew, nearFull); // days to/from nearest spring tide
+
+  // Doodtij peaks ~2 days after first/last quarter.
+  const nearQ1 = Math.abs(moonAge - firstQuarter);
+  const nearQ3 = Math.abs(moonAge - lastQuarter);
+
+  let label;
+  if (nearSpring < 2.5) {
+    label = "springtij";
+  } else if (nearQ1 < 2.5 || nearQ3 < 2.5) {
+    label = "doodtij";
+  } else if (nearSpring <= 7) {
+    label = `${Math.round(nearSpring)}d tot springtij`;
+  } else {
+    label = null; // not interesting enough to show
+  }
+
+  return { moonLabel: label };
+}
+
 // ── HTTP server ──────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
@@ -370,6 +412,7 @@ const server = http.createServer(async (req, res) => {
       ...weather,
       ...tide,
       ...waterTemp,
+      ...getMoonInfo(),
     };
 
     const json = JSON.stringify(result);

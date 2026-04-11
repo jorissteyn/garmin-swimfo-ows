@@ -115,6 +115,12 @@ class SwimfoTideTableView extends WatchUi.View {
             }
 
             var isHW = typeStr.equals("HW");
+            var fontH = dc.getFontHeight(Graphics.FONT_TINY);
+            var arrowCy = y + fontH / 2;
+            var arrowX = w / 10;
+            var arrowS = 5;
+
+            // Draw triangle arrow
             if (isPast) {
                 dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
             } else if (isHW) {
@@ -122,14 +128,22 @@ class SwimfoTideTableView extends WatchUi.View {
             } else {
                 dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
             }
-            var arrow = isHW ? "\u25B2" : "\u25BC";
-            dc.drawText(w / 6, y, Graphics.FONT_TINY, arrow + " " + typeStr,
-                Graphics.TEXT_JUSTIFY_CENTER);
+            if (isHW) {
+                dc.fillPolygon([[arrowX, arrowCy - arrowS], [arrowX - arrowS, arrowCy + arrowS], [arrowX + arrowS, arrowCy + arrowS]] as Lang.Array);
+            } else {
+                dc.fillPolygon([[arrowX, arrowCy + arrowS], [arrowX - arrowS, arrowCy - arrowS], [arrowX + arrowS, arrowCy - arrowS]] as Lang.Array);
+            }
 
+            // Type label
+            dc.drawText(w / 5, y, Graphics.FONT_TINY, typeStr,
+                Graphics.TEXT_JUSTIFY_LEFT);
+
+            // Level
             dc.setColor(isPast ? dim : fg, Graphics.COLOR_TRANSPARENT);
             dc.drawText(w / 2, y, Graphics.FONT_TINY, levelStr,
                 Graphics.TEXT_JUSTIFY_CENTER);
 
+            // Time
             dc.drawText(w * 5 / 6, y, Graphics.FONT_TINY, timeStr,
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
