@@ -53,7 +53,7 @@ $(PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) $(KEY) | $(OUT_DIR)
 
 release: $(KEY) | $(OUT_DIR) ## Build release .iq package (all devices)
 	@mkdir -p $(TMP_DIR)
-	$(MC) -o $(IQ) -f $(JUNGLE) -y $(KEY) -e -r -w
+	$(MC) -o $(IQ) -f $(JUNGLE):release.jungle -y $(KEY) -e -r -w
 
 test: $(TEST_PRG) | sim-start ## Compile and run unit tests in simulator
 	$(DO) $< $(DEVICE) -t

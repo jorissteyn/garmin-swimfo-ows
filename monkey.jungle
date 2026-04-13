@@ -2,3 +2,7 @@ project.manifest = manifest.xml
 
 base.sourcePath = source
 base.resourcePath = resources
+
+# Default: debug build (excludes release-only code).
+# Release builds add release.jungle which overrides this.
+base.excludeAnnotations = release

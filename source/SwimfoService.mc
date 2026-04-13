@@ -11,15 +11,23 @@ using Toybox.Time;
 (:background)
 class SwimfoService extends System.ServiceDelegate {
 
-    hidden var SERVER_BASE as Lang.String = "http://localhost:31415";
-
     function initialize() {
         ServiceDelegate.initialize();
     }
 
+    (:debug)
+    hidden function serverBase() as Lang.String {
+        return "http://localhost:31415";
+    }
+
+    (:release)
+    hidden function serverBase() as Lang.String {
+        return "https://ows.j0r1s.nl";
+    }
+
     function onTemporalEvent() as Void {
         var loc = Locations.getSelected();
-        var url = SERVER_BASE + "/conditions/" + loc["rwsCode"];
+        var url = serverBase() + "/conditions/" + loc["rwsCode"];
         System.println("fetch=" + url);
 
         Communications.makeWebRequest(
