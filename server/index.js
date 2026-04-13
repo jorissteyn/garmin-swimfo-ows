@@ -51,15 +51,21 @@ function getCached(key) {
   try {
     const raw = fs.readFileSync(file, "utf8");
     const entry = JSON.parse(raw);
+    const age = Math.floor((Date.now() - entry.ts) / 1000);
     if (Date.now() - entry.ts < CACHE_TTL) {
+      log(`  cache READ  ${file} (age ${age}s) ${JSON.stringify(entry.data)}`);
       return entry.data;
     }
-  } catch {}
+    log(`  cache STALE ${file} (age ${age}s > TTL ${CACHE_TTL / 1000}s)`);
+  } catch (err) {
+    log(`  cache MISS  ${file} (${err.code || err.message})`);
+  }
   return null;
 }
 
 function setCache(key, data) {
   const file = path.join(CACHE_DIR, `${key}.json`);
+  log(`  cache WRITE ${file} ${JSON.stringify(data)}`);
   fs.writeFileSync(file, JSON.stringify({ ts: Date.now(), data }));
 }
 
