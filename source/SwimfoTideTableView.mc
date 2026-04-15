@@ -89,7 +89,6 @@ class SwimfoTideTableView extends WatchUi.View {
 
             var eType = e["type"];
             var eLevel = e["level"];
-            var eTime = e["time"];
             var eEpoch = e["epoch"];
 
             var typeStr = "  ";
@@ -105,8 +104,8 @@ class SwimfoTideTableView extends WatchUi.View {
             }
 
             var timeStr = "--:--";
-            if (eTime != null && eTime instanceof Lang.String) {
-                timeStr = eTime as Lang.String;
+            if (eEpoch instanceof Lang.Number) {
+                timeStr = formatTime(eEpoch as Lang.Number);
             }
 
             var isPast = false;
@@ -170,10 +169,10 @@ class SwimfoTideTableView extends WatchUi.View {
                 continue;
             }
             var e = entry as Lang.Dictionary;
-            var dateVal = e["date"];
+            var epochVal = e["epoch"];
             var dateStr = "";
-            if (dateVal != null && dateVal instanceof Lang.String) {
-                dateStr = dateVal as Lang.String;
+            if (epochVal instanceof Lang.Number) {
+                dateStr = formatDate(epochVal as Lang.Number);
             }
 
             if (!dateStr.equals(lastDate) && !dateStr.equals("")) {
@@ -184,6 +183,21 @@ class SwimfoTideTableView extends WatchUi.View {
         }
 
         return rows;
+    }
+
+    hidden function formatTime(epoch as Lang.Number) as Lang.String {
+        var g = Gregorian.info(new Time.Moment(epoch), Time.FORMAT_SHORT);
+        return pad2(g.hour) + ":" + pad2(g.min);
+    }
+
+    hidden function formatDate(epoch as Lang.Number) as Lang.String {
+        var g = Gregorian.info(new Time.Moment(epoch), Time.FORMAT_MEDIUM);
+        return g.day_of_week + " " + g.day + " " + g.month;
+    }
+
+    hidden function pad2(n as Lang.Number) as Lang.String {
+        if (n < 10) { return "0" + n; }
+        return n.toString();
     }
 
 }

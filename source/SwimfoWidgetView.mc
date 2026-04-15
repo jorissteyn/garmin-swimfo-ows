@@ -57,6 +57,16 @@ class SwimfoWidgetView extends WatchUi.View {
         dc.drawText(w / 2, h / 8, Graphics.FONT_XTINY, locName,
             Graphics.TEXT_JUSTIFY_CENTER);
 
+        // Error code banner directly under location name (visible on all pages)
+        var errVal = data["lastError"];
+        if (errVal != null && errVal instanceof Lang.Number) {
+            dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, h / 8 + dc.getFontHeight(Graphics.FONT_XTINY),
+                Graphics.FONT_XTINY,
+                "Fout: " + (errVal as Lang.Number).toString(),
+                Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
         if (_page == 0) {
             drawTidePage(dc, w, h, data, fg, dim);
         } else if (_page == 1) {
@@ -278,15 +288,6 @@ class SwimfoWidgetView extends WatchUi.View {
         } else {
             dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
             dc.drawText(w / 2, cy + 4, Graphics.FONT_SMALL, "Nooit",
-                Graphics.TEXT_JUSTIFY_CENTER);
-        }
-
-        // Show last error code if any
-        var errVal = data["lastError"];
-        if (errVal != null && errVal instanceof Lang.Number) {
-            dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, h * 5 / 8, Graphics.FONT_XTINY,
-                "Fout: " + (errVal as Lang.Number).toString(),
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
 

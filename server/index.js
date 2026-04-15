@@ -254,12 +254,12 @@ function parseTide(data) {
   const futureLimit = 12; // ~3 days of HW/LW
   const past = extrema.filter((e) => e.epoch <= nowSec).slice(-1);
   const future = extrema.filter((e) => e.epoch > nowSec).slice(0, futureLimit);
+  // Only type/level/epoch — time and date are derived on the watch from epoch.
+  // Keeps the parsed Dictionary small (every extra key costs ~40-80B in CIQ).
   result.tideTable = [...past, ...future].map((e) => ({
     type: e.type,
     level: Math.round(e.level * 100) / 100,
     epoch: Math.floor(e.epoch),
-    time: localTime(points[e.idx].time),
-    date: localDate(points[e.idx].time),
   }));
 
   return result;
