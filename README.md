@@ -136,6 +136,31 @@ make server-clean   # remove server artifacts
 make DEVICE=venu2 build
 ```
 
+### Sync error codes
+
+When the background fetch fails, the Sync page shows `Fout: <code>`. The code is either an HTTP status from the server (≥ 400) or a negative Connect IQ error constant. Common values:
+
+| Code   | Symbol                                  | Meaning |
+|--------|-----------------------------------------|---------|
+| -2     | `NETWORK_REQUEST_TIMED_OUT`             | Phone or upstream took too long |
+| -101   | `BLE_CONNECTION_UNAVAILABLE`            | Phone not connected, Bluetooth off, or Garmin Connect not running |
+| -102   | `BLE_HOST_TIMEOUT`                      | Bluetooth handoff timeout |
+| -103   | `BLE_SERVER_TIMEOUT`                    | Phone-side request timeout |
+| -104   | `BLE_NO_DATA`                           | Phone returned no payload |
+| -200   | `INVALID_HTTP_BODY_IN_NETWORK_RESPONSE` | Response wasn't valid for the declared content type |
+| -201   | `INVALID_HTTP_HEADER_FIELDS_IN_RESPONSE`| Server returned malformed headers |
+| -202   | `NETWORK_RESPONSE_OUT_OF_MEMORY`        | Response too large for the watch |
+| -300   | `INVALID_HTTP_METHOD_IN_REQUEST`        | Method/URL rejected by Garmin's HTTPS proxy |
+| -400   | `NETWORK_RESPONSE_TOO_LARGE`            | Body exceeded the response limit |
+| -401   | `NETWORK_REQUEST_CANCELLED`             | Request canceled (e.g. app closed) |
+| -402   | `STORAGE_FULL`                          | No space to store response |
+| -403   | `SECURE_CONNECTION_REQUIRED`            | URL was http but server expects https |
+| -1001  | `UNABLE_TO_CONNECT_TO_SERVER`           | Hostname/SSL/cert issue, or server down |
+| 4xx    | (HTTP)                                  | Server reachable but returned a client error |
+| 5xx    | (HTTP)                                  | Server reachable but returned a server error |
+
+Full reference: [Toybox.Communications constants](https://developer.garmin.com/connect-iq/api-docs/Toybox/Communications.html).
+
 ### Location configuration
 
 #### Adding a new location
