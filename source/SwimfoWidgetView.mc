@@ -281,6 +281,15 @@ class SwimfoWidgetView extends WatchUi.View {
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
 
+        // Show last error code if any
+        var errVal = data["lastError"];
+        if (errVal != null && errVal instanceof Lang.Number) {
+            dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, h * 5 / 8, Graphics.FONT_XTINY,
+                "Fout: " + (errVal as Lang.Number).toString(),
+                Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
         // Hint / status — show "Sync gepland..." until data arrives
         var syncPending = false;
         if (_syncRequestedAt > 0) {

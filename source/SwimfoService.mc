@@ -62,6 +62,7 @@ class SwimfoService extends System.ServiceDelegate {
         } else {
             // On error, preserve location name so the view shows something
             result["locName"] = Locations.getSelected()["name"];
+            result["lastError"] = code;
         }
 
         result["lastUpdate"] = Time.now().value();
