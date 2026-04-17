@@ -34,12 +34,18 @@ class SwimfoWidgetDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         if (page == 3) {
+            // Try shortest delay first; CIQ enforces >=5 min since last run.
+            // If that fails, fall back to the 5-min minimum.
             try {
-                Background.registerForTemporalEvent(Time.now().add(new Time.Duration(300)));
+                Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1)));
                 _view.setSyncRequested();
-                System.println("Sync scheduled in 5 min");
             } catch (e) {
-                System.println("Sync not possible: " + e.getErrorMessage());
+                try {
+                    Background.registerForTemporalEvent(Time.now().add(new Time.Duration(300)));
+                    _view.setSyncRequested();
+                } catch (e2) {
+                    System.println("Sync not possible: " + e2.getErrorMessage());
+                }
             }
             WatchUi.requestUpdate();
             return true;

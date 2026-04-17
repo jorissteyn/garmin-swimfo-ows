@@ -59,13 +59,12 @@ class SwimfoService extends System.ServiceDelegate {
                     result[keys[i]] = v;
                 }
             }
+            result["lastUpdate"] = Time.now().value();
         } else {
             // On error, preserve location name so the view shows something
             result["locName"] = Locations.getSelected()["name"];
             result["lastError"] = code;
         }
-
-        result["lastUpdate"] = Time.now().value();
         System.println("result=" + result.keys());
         Background.exit(result);
     }
