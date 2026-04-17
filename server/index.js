@@ -255,11 +255,21 @@ function parseTide(data) {
   const future = extrema.filter((e) => e.epoch > nowSec).slice(0, futureLimit);
   // Only type/level/epoch — time and date are derived on the watch from epoch.
   // Keeps the parsed Dictionary small (every extra key costs ~40-80B in CIQ).
-  result.tideTable = [...past, ...future].map((e) => ({
+  const tideRows = [...past, ...future].map((e) => ({
     type: e.type,
     level: Math.round(e.level * 100) / 100,
     epoch: Math.floor(e.epoch),
   }));
+
+  // Inject springtij/doodtij markers within the same time range.
+  if (tideRows.length > 0) {
+    const rangeStart = tideRows[0].epoch * 1000;
+    const rangeEnd = tideRows[tideRows.length - 1].epoch * 1000;
+    const lunar = getLunarEvents(rangeStart, rangeEnd);
+    tideRows.push(...lunar);
+    tideRows.sort((a, b) => a.epoch - b.epoch);
+  }
+  result.tideTable = tideRows;
 
   return result;
 }
@@ -346,44 +356,69 @@ function localDate(ts) {
 
 // ── Moon phase ──────────────────────────────────────────────
 
+// Reference new moon: Jan 6, 2000 18:14 UTC
+const REF_NEW_MOON_MS = new Date("2000-01-06T18:14:00Z").getTime();
+const SYNODIC_DAYS = 29.530588853;
+const SYNODIC_MS = SYNODIC_DAYS * 24 * 3600 * 1000;
+// Springtij/doodtij peak ~2 days after the triggering lunar phase (RWS).
+const PHASE_PEAK_OFFSET_MS = 2 * 24 * 3600 * 1000;
+// Days since the triggering phase still count as spring/neap (0=phase, peak=+2, fading by +4).
+const PHASE_WINDOW_DAYS = 4;
+
 function getMoonInfo() {
-  // Reference new moon: Jan 6, 2000 18:14 UTC
-  const refNewMoon = new Date("2000-01-06T18:14:00Z").getTime();
-  const synodicMonth = 29.530588853; // days
   const now = Date.now();
+  const daysSinceRef = (now - REF_NEW_MOON_MS) / (24 * 3600 * 1000);
+  const moonAge = ((daysSinceRef % SYNODIC_DAYS) + SYNODIC_DAYS) % SYNODIC_DAYS;
 
-  const daysSinceRef = (now - refNewMoon) / (24 * 3600 * 1000);
-  const moonAge = ((daysSinceRef % synodicMonth) + synodicMonth) % synodicMonth;
+  // Phase offsets within the synodic cycle
+  const firstQuarter = SYNODIC_DAYS / 4;
+  const fullMoonAge = SYNODIC_DAYS / 2;
+  const lastQuarter = SYNODIC_DAYS * 3 / 4;
 
-  // Key phases (in days from new moon)
-  const fullMoonAge = synodicMonth / 2; // ~14.77
-  const firstQuarter = synodicMonth / 4; // ~7.38
-  const lastQuarter = synodicMonth * 3 / 4; // ~22.15
-
-  // Springtij peaks ~2 days after new/full moon.
-  // Find distance to nearest new or full moon.
-  const fromNewMoon = moonAge;
-  const toNewMoon = synodicMonth - moonAge;
-  const nearNew = Math.min(fromNewMoon, toNewMoon);
-  const nearFull = Math.abs(moonAge - fullMoonAge);
-  const nearSpring = Math.min(nearNew, nearFull); // days to/from nearest spring tide
-
-  // Doodtij peaks ~2 days after first/last quarter.
-  const nearQ1 = Math.abs(moonAge - firstQuarter);
-  const nearQ3 = Math.abs(moonAge - lastQuarter);
+  // Days since each phase (always positive, so "2 days after" maps to 2, not -2).
+  const sincePhase = (age) => ((moonAge - age + SYNODIC_DAYS) % SYNODIC_DAYS);
+  const sinceSpring = Math.min(sincePhase(0), sincePhase(fullMoonAge));
+  const sinceNeap = Math.min(sincePhase(firstQuarter), sincePhase(lastQuarter));
 
   let label;
-  if (nearSpring < 2.5) {
+  if (sinceSpring <= PHASE_WINDOW_DAYS) {
     label = "springtij";
-  } else if (nearQ1 < 2.5 || nearQ3 < 2.5) {
+  } else if (sinceNeap <= PHASE_WINDOW_DAYS) {
     label = "doodtij";
-  } else if (nearSpring <= 7) {
-    label = `${Math.round(nearSpring)}d tot springtij`;
   } else {
-    label = null; // not interesting enough to show
+    // Transition: next springtij is at the start of the next spring-half-cycle.
+    const daysToNext = (SYNODIC_DAYS / 2) - sinceSpring;
+    label = `${Math.round(daysToNext)}d tot springtij`;
   }
 
   return { moonLabel: label };
+}
+
+// Lunar tide events (springtij / doodtij) within [startMs, endMs].
+// Each event is +2 days after the triggering lunar phase.
+function getLunarEvents(startMs, endMs) {
+  const quarterMs = SYNODIC_MS / 4;
+  const events = [];
+
+  // Sweep a few cycles around the range; each cycle has 2 springs + 2 neaps.
+  const firstCycle = Math.floor((startMs - REF_NEW_MOON_MS) / SYNODIC_MS) - 1;
+  const lastCycle = Math.ceil((endMs - REF_NEW_MOON_MS) / SYNODIC_MS) + 1;
+
+  for (let n = firstCycle; n <= lastCycle; n++) {
+    const cycleStart = REF_NEW_MOON_MS + n * SYNODIC_MS;
+    const candidates = [
+      { type: "SPR", ts: cycleStart + PHASE_PEAK_OFFSET_MS },
+      { type: "DTJ", ts: cycleStart + quarterMs + PHASE_PEAK_OFFSET_MS },
+      { type: "SPR", ts: cycleStart + 2 * quarterMs + PHASE_PEAK_OFFSET_MS },
+      { type: "DTJ", ts: cycleStart + 3 * quarterMs + PHASE_PEAK_OFFSET_MS },
+    ];
+    for (const c of candidates) {
+      if (c.ts >= startMs && c.ts <= endMs) {
+        events.push({ type: c.type, epoch: Math.floor(c.ts / 1000) });
+      }
+    }
+  }
+  return events;
 }
 
 // ── HTTP server ──────────────────────────────────────────────

@@ -81,25 +81,23 @@ function toBeaufort(kmh) {
   return "12";
 }
 
+// Kept in sync with server/index.js getMoonInfo.
+const REF_NEW_MOON_MS = new Date("2000-01-06T18:14:00Z").getTime();
+const SYNODIC_DAYS = 29.530588853;
+const PHASE_WINDOW_DAYS = 4;
+
 function getMoonInfo() {
-  const refNewMoon = new Date("2000-01-06T18:14:00Z").getTime();
-  const synodicMonth = 29.530588853;
-  const daysSinceRef = (Date.now() - refNewMoon) / (24 * 3600 * 1000);
-  const moonAge = ((daysSinceRef % synodicMonth) + synodicMonth) % synodicMonth;
-  const fullMoonAge = synodicMonth / 2;
-  const firstQuarter = synodicMonth / 4;
-  const lastQuarter = synodicMonth * 3 / 4;
-  const nearNew = Math.min(moonAge, synodicMonth - moonAge);
-  const nearFull = Math.abs(moonAge - fullMoonAge);
-  const nearSpring = Math.min(nearNew, nearFull);
-  const nearQ1 = Math.abs(moonAge - firstQuarter);
-  const nearQ3 = Math.abs(moonAge - lastQuarter);
-  let label;
-  if (nearSpring < 2.5) label = "springtij";
-  else if (nearQ1 < 2.5 || nearQ3 < 2.5) label = "doodtij";
-  else if (nearSpring <= 7) label = `${Math.round(nearSpring)}d tot springtij`;
-  else label = null;
-  return { moonLabel: label };
+  const daysSinceRef = (Date.now() - REF_NEW_MOON_MS) / (24 * 3600 * 1000);
+  const moonAge = ((daysSinceRef % SYNODIC_DAYS) + SYNODIC_DAYS) % SYNODIC_DAYS;
+  const firstQuarter = SYNODIC_DAYS / 4;
+  const fullMoonAge = SYNODIC_DAYS / 2;
+  const lastQuarter = SYNODIC_DAYS * 3 / 4;
+  const sincePhase = (a) => ((moonAge - a + SYNODIC_DAYS) % SYNODIC_DAYS);
+  const sinceSpring = Math.min(sincePhase(0), sincePhase(fullMoonAge));
+  const sinceNeap = Math.min(sincePhase(firstQuarter), sincePhase(lastQuarter));
+  if (sinceSpring <= PHASE_WINDOW_DAYS) return { moonLabel: "springtij" };
+  if (sinceNeap <= PHASE_WINDOW_DAYS) return { moonLabel: "doodtij" };
+  return { moonLabel: `${Math.round(SYNODIC_DAYS / 2 - sinceSpring)}d tot springtij` };
 }
 
 const DIM = "\x1b[2m";
@@ -197,18 +195,41 @@ for (const [loc, types] of Object.entries(byLocation)) {
   if (Array.isArray(tide.tideTable) && tide.tideTable.length > 0) {
     tideDataLines.push("");
     const nowSec = Date.now() / 1000;
+    const dateKey = (epoch) =>
+      new Date(epoch * 1000).toLocaleDateString("nl-NL", {
+        weekday: "short", day: "numeric", month: "short",
+        timeZone: "Europe/Amsterdam",
+      });
+
+    // Pass 1: index lunar labels by date.
+    const lunarByDate = {};
+    for (const e of tide.tideTable) {
+      if (e.type !== "SPR" && e.type !== "DTJ") continue;
+      lunarByDate[dateKey(e.epoch)] = e.type === "SPR" ? "springtij" : "doodtij";
+    }
+
+    // Pass 2: emit header (+ optional sub) per date, then HW/LW rows only.
     let lastDate = "";
     for (const e of tide.tideTable) {
-      const dateStr = e.date || "";
-      if (dateStr && dateStr !== lastDate) {
+      const dateStr = dateKey(e.epoch);
+      if (dateStr !== lastDate) {
         tideDataLines.push(`  ${BOLD}${dateStr}${RESET}`);
+        const sub = lunarByDate[dateStr];
+        if (sub) tideDataLines.push(`    ${DIM}${sub}${RESET}`);
         lastDate = dateStr;
       }
+      if (e.type === "SPR" || e.type === "DTJ") continue;
       const past = e.epoch < nowSec;
-      const arrow = e.type === "HW" ? `${GREEN}\u25b2${RESET}` : `${RED}\u25bc${RESET}`;
       const c = past ? DIM : "";
       const r = past ? RESET : "";
-      tideDataLines.push(`    ${c}${arrow} ${e.type} ${(e.level ?? 0).toFixed(2).padStart(6)}m  ${e.time}${r}`);
+      const time = new Date(e.epoch * 1000).toLocaleTimeString("nl-NL", {
+        hour: "2-digit", minute: "2-digit", hour12: false,
+        timeZone: "Europe/Amsterdam",
+      });
+      const arrowColor = past ? DIM : (e.type === "HW" ? GREEN : RED);
+      const arrow = e.type === "HW" ? `${arrowColor}\u25b2${RESET}` : `${arrowColor}\u25bc${RESET}`;
+      const label = `${arrowColor}${e.type}${RESET}`;
+      tideDataLines.push(`    ${c}${arrow} ${label} ${(e.level ?? 0).toFixed(2).padStart(6)}m  ${time}${r}`);
     }
   }
   console.log(box("Tide data", tideDataLines, W));

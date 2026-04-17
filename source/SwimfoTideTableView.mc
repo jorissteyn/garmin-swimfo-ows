@@ -10,17 +10,28 @@ class SwimfoTideTableView extends WatchUi.View {
     hidden var _scroll as Lang.Number = 0;
     hidden var _totalRows as Lang.Number = 0;
     hidden var _rowsVisible as Lang.Number = 5;
+    hidden var _dayStarts as Lang.Array = [] as Lang.Array;
 
     function initialize() {
         View.initialize();
     }
 
     function scroll(delta as Lang.Number) as Void {
-        _scroll = _scroll + delta;
-        if (_scroll < 0) { _scroll = 0; }
-        var max = _totalRows - _rowsVisible;
-        if (max < 0) { max = 0; }
-        if (_scroll > max) { _scroll = max; }
+        if (_dayStarts.size() == 0) {
+            return;
+        }
+        var currentDay = 0;
+        for (var i = 0; i < _dayStarts.size(); i++) {
+            if ((_dayStarts[i] as Lang.Number) <= _scroll) {
+                currentDay = i;
+            } else {
+                break;
+            }
+        }
+        var targetDay = currentDay + delta;
+        if (targetDay < 0) { targetDay = 0; }
+        if (targetDay >= _dayStarts.size()) { targetDay = _dayStarts.size() - 1; }
+        _scroll = _dayStarts[targetDay] as Lang.Number;
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
@@ -55,10 +66,11 @@ class SwimfoTideTableView extends WatchUi.View {
             return;
         }
 
-        // Build flat row list: date headers + tide entries
-        // Each row: { "header": dateStr } or { "entry": entryDict }
         var rows = buildRows(entries);
         _totalRows = rows.size();
+        if (_scroll > _totalRows - 1 && _totalRows > 0) {
+            _scroll = _totalRows - 1;
+        }
 
         var rowHeight = dc.getFontHeight(Graphics.FONT_TINY) + 4;
         _rowsVisible = ((h - 20) / rowHeight);
@@ -133,6 +145,10 @@ class SwimfoTideTableView extends WatchUi.View {
                 dc.fillPolygon([[arrowX, arrowCy + arrowS], [arrowX - arrowS, arrowCy - arrowS], [arrowX + arrowS, arrowCy - arrowS]] as Lang.Array);
             }
 
+            // Small HW/LW label (inherits arrow color)
+            dc.drawText(arrowX + arrowS + 3, arrowCy, Graphics.FONT_XTINY, typeStr,
+                Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+
             // Level
             dc.setColor(isPast ? dim : fg, Graphics.COLOR_TRANSPARENT);
             dc.drawText(w * 2 / 5, y, Graphics.FONT_TINY, levelStr,
@@ -154,30 +170,56 @@ class SwimfoTideTableView extends WatchUi.View {
         }
     }
 
-    // Build rows with date headers inserted when date changes
+    // Build rows: date header (with optional lunar label appended), then HW/LW
+    // entries. SPR/DTJ entries are folded into the date header text.
+    // Also populates _dayStarts with row indexes of each date header.
     hidden function buildRows(entries as Lang.Array) as Lang.Array {
         var rows = [] as Lang.Array;
+        var dayStarts = [] as Lang.Array;
         var lastDate = "";
+
+        var lunarByDate = {} as Lang.Dictionary;
+        for (var i = 0; i < entries.size(); i++) {
+            var entry = entries[i];
+            if (entry == null || !(entry instanceof Lang.Dictionary)) { continue; }
+            var e = entry as Lang.Dictionary;
+            var tv = e["type"];
+            if (tv == null || !(tv instanceof Lang.String)) { continue; }
+            var t = tv as Lang.String;
+            if (!t.equals("SPR") && !t.equals("DTJ")) { continue; }
+            var ev = e["epoch"];
+            if (!(ev instanceof Lang.Number)) { continue; }
+            lunarByDate[formatDate(ev as Lang.Number)] =
+                t.equals("SPR") ? "springtij" : "doodtij";
+        }
 
         for (var i = 0; i < entries.size(); i++) {
             var entry = entries[i];
-            if (entry == null || !(entry instanceof Lang.Dictionary)) {
-                continue;
-            }
+            if (entry == null || !(entry instanceof Lang.Dictionary)) { continue; }
             var e = entry as Lang.Dictionary;
-            var epochVal = e["epoch"];
-            var dateStr = "";
-            if (epochVal instanceof Lang.Number) {
-                dateStr = formatDate(epochVal as Lang.Number);
-            }
+            var tv = e["type"];
+            var t = (tv != null && tv instanceof Lang.String) ? (tv as Lang.String) : "";
+            var isLunar = t.equals("SPR") || t.equals("DTJ");
+
+            var ev = e["epoch"];
+            var dateStr = (ev instanceof Lang.Number)
+                ? formatDate(ev as Lang.Number) : "";
 
             if (!dateStr.equals(lastDate) && !dateStr.equals("")) {
-                rows.add({ "header" => dateStr } as Lang.Dictionary);
+                var headerText = dateStr;
+                var lunar = lunarByDate[dateStr];
+                if (lunar != null && lunar instanceof Lang.String) {
+                    headerText = headerText + "  " + (lunar as Lang.String);
+                }
+                dayStarts.add(rows.size());
+                rows.add({ "header" => headerText } as Lang.Dictionary);
                 lastDate = dateStr;
             }
-            rows.add({ "entry" => e } as Lang.Dictionary);
+            if (!isLunar) {
+                rows.add({ "entry" => e } as Lang.Dictionary);
+            }
         }
-
+        _dayStarts = dayStarts;
         return rows;
     }
 
