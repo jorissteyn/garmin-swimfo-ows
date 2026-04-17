@@ -3,6 +3,7 @@ project.manifest = manifest.xml
 base.sourcePath = source
 base.resourcePath = resources
 
-# Default: debug build (excludes release-only code).
-# Release builds add release.jungle which overrides this.
-base.excludeAnnotations = release
+# Default build uses the production server URL (ows.j0r1s.nl) so the PRG
+# works when sideloaded to a watch. Dev builds (simulator with a local
+# server) add dev.jungle to override this and use localhost.
+base.excludeAnnotations = dev

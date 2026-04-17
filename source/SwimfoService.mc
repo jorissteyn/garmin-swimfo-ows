@@ -15,12 +15,12 @@ class SwimfoService extends System.ServiceDelegate {
         ServiceDelegate.initialize();
     }
 
-    (:debug)
+    (:dev)
     hidden function serverBase() as Lang.String {
         return "http://localhost:31415";
     }
 
-    (:release)
+    (:prod)
     hidden function serverBase() as Lang.String {
         return "https://ows.j0r1s.nl";
     }

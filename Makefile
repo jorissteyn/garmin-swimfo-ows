@@ -13,7 +13,7 @@ KEY          ?= developer_key.der
 JUNGLE        = monkey.jungle
 DEVICE       ?= fr265
 OUT_DIR       = bin
-APP_NAME      = Swimfo
+APP_NAME      = ZeelandOWS
 
 # Ensure a writable temp directory (sandbox/read-only /tmp workaround)
 TMP_DIR       = $(CURDIR)/bin/.tmp
@@ -23,6 +23,7 @@ export TMP    := $(TMP_DIR)
 export _JAVA_OPTIONS := -Djava.io.tmpdir=$(TMP_DIR)
 
 PRG           = $(OUT_DIR)/$(APP_NAME).prg
+PRG_DEV       = $(OUT_DIR)/$(APP_NAME)-dev.prg
 IQ            = $(OUT_DIR)/$(APP_NAME).iq
 TEST_PRG      = $(OUT_DIR)/$(APP_NAME)-test.prg
 
@@ -31,7 +32,7 @@ RESOURCES     = $(shell find resources -type f)
 
 # ── Targets ───────────────────────────────────────────────────
 
-.PHONY: help build release test run sim-start sim-stop clean keygen \
+.PHONY: help build build-dev release test run sim-start sim-stop clean keygen \
        server-build server-start server-stop server-run server-debug server-clean
 
 help: ## Show this help
@@ -45,24 +46,30 @@ help: ## Show this help
 	@echo ""
 	@echo "Devices: fenix7 fenix7s fenix7x venu2 venu2s fr955 fr965 epix2"
 
-build: $(PRG) ## Compile debug build for simulator
+build: $(PRG) ## Compile watch-ready PRG (prod server URL)
 
 $(PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) $(KEY) | $(OUT_DIR)
 	@mkdir -p $(TMP_DIR)
 	$(MC) -o $@ -f $(JUNGLE) -y $(KEY) -d $(DEVICE) -w
 
-release: $(KEY) | $(OUT_DIR) ## Build release .iq package (all devices)
+build-dev: $(PRG_DEV) ## Compile simulator PRG (localhost server URL)
+
+$(PRG_DEV): $(SOURCES) $(RESOURCES) $(JUNGLE) dev.jungle $(KEY) | $(OUT_DIR)
 	@mkdir -p $(TMP_DIR)
-	$(MC) -o $(IQ) -f $(JUNGLE):release.jungle -y $(KEY) -e -r -w
+	$(MC) -o $@ -f $(JUNGLE):dev.jungle -y $(KEY) -d $(DEVICE) -w
+
+release: $(KEY) | $(OUT_DIR) ## Build .iq store package (prod server URL)
+	@mkdir -p $(TMP_DIR)
+	$(MC) -o $(IQ) -f $(JUNGLE) -y $(KEY) -e -r -w
 
 test: $(TEST_PRG) | sim-start ## Compile and run unit tests in simulator
 	$(DO) $< $(DEVICE) -t
 
-$(TEST_PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) $(KEY) | $(OUT_DIR)
+$(TEST_PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) dev.jungle $(KEY) | $(OUT_DIR)
 	@mkdir -p $(TMP_DIR)
-	$(MC) -o $@ -f $(JUNGLE) -y $(KEY) -d $(DEVICE) -t -w
+	$(MC) -o $@ -f $(JUNGLE):dev.jungle -y $(KEY) -d $(DEVICE) -t -w
 
-run: $(PRG) | sim-start ## Build and run in simulator
+run: $(PRG_DEV) | sim-start ## Build dev PRG and run in simulator
 	$(DO) $< $(DEVICE)
 
 sim-start: ## Start the Connect IQ simulator

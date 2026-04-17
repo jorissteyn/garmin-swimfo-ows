@@ -17,10 +17,14 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
 
+        // The system draws the launcher icon on the left; we only render text
+        // in the dc (which covers the content area to the right of it).
+        var textX = 0;
+
         var data = Storage.getValue("swimfoData") as Lang.Dictionary?;
 
         if (data == null) {
-            dc.drawText(0, h / 2, Graphics.FONT_GLANCE, "Swimfo",
+            dc.drawText(textX, h / 2, Graphics.FONT_GLANCE, "Zeeland OWS",
                 Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
             return;
         }
@@ -36,7 +40,7 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
         var wt = fmtF(data, "waterTemp", "%.0f");
         if (!wt.equals("--")) { parts1.add("w" + wt + "\u00B0"); }
 
-        var line1 = "Swimfo";
+        var line1 = "Zeeland OWS";
         if (parts1.size() > 0) {
             line1 = joinArr(parts1, " ");
         }
@@ -48,12 +52,12 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
         var wind = fmtF(data, "windSpeed", "%.0f");
         if (!wind.equals("--")) { parts2.add(wind + "km/h"); }
 
-        dc.drawText(0, h / 3, Graphics.FONT_GLANCE, line1,
+        dc.drawText(textX, h / 3, Graphics.FONT_GLANCE, line1,
             Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
         if (parts2.size() > 0) {
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(0, h * 2 / 3, Graphics.FONT_GLANCE_NUMBER,
+            dc.drawText(textX, h * 2 / 3, Graphics.FONT_GLANCE_NUMBER,
                 joinArr(parts2, " "),
                 Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
         }

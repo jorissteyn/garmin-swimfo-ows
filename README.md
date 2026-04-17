@@ -47,6 +47,10 @@ Page 3: Weather    Page 4: Sync
 
 fenix 7 / 7S / 7X, Venu 2 / 2S, Forerunner 955 / 965, epix 2
 
+## Installation
+
+After installing the app on your watch, add the glance to your widget carousel (long-press on the watch face → Glances → Add). This enables automatic background data updates every 30 minutes. Without the glance in the carousel, data only refreshes while the widget is actively open.
+
 ## Architecture
 
 The watch app fetches all data from a local proxy server that aggregates upstream APIs:
@@ -135,6 +139,17 @@ make server-clean   # remove server artifacts
 # Target a different device
 make DEVICE=venu2 build
 ```
+
+### SDK reference
+
+Useful local paths when digging into Connect IQ behavior:
+
+- SDK install root: `~/.Garmin/ConnectIQ/`
+- Installed SDKs: `~/.Garmin/ConnectIQ/Sdks/` (project uses `connectiq-sdk-lin-8.3.0-2025-09-22-5813687a0` copied into `.sdk/`)
+- **SDK samples** (reference implementations): `~/.Garmin/ConnectIQ/Sdks/connectiq-sdk-lin-8.3.0-2025-09-22-5813687a0/samples`
+- Per-device specs (`compiler.json` — icon sizes, memory limits, display dims): `~/.Garmin/ConnectIQ/Devices/<device>/compiler.json`
+- Per-device system icons (SVGs): `~/.Garmin/ConnectIQ/Devices/<device>/system_icon_*.svg`
+- API symbol DB: `.sdk/bin/api.debug.xml` (grep for class/method docs faster than the online API)
 
 ### Sync error codes
 
