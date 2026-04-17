@@ -85,12 +85,45 @@ class SwimfoWidgetView extends WatchUi.View {
     hidden function drawTidePage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
         var cy = h * 4 / 10;
+        var now = Time.now().value();
+        var anchors = pickAnchors(data, now);
 
-        // Interpolate current water level from prev/next extrema
-        var interpResult = interpolateTide(data);
-        var level = interpResult[0] as Lang.String;
-        var isRising = interpResult[1] as Lang.Boolean;
-        var hasDirection = interpResult[2] as Lang.Boolean;
+        var level = "--";
+        var isRising = false;
+        var hasDirection = false;
+        var nextEpochTime = null;
+        var nextLevelStr = "--";
+        var nextType = null;
+
+        if (anchors != null) {
+            var prevEpoch = anchors[0] as Lang.Number;
+            var prevLevel = anchors[1] as Lang.Float;
+            var nextEpoch = anchors[2] as Lang.Number;
+            var nextLevel = anchors[3] as Lang.Float;
+            var span = nextEpoch - prevEpoch;
+            if (span > 0) {
+                var t = (now - prevEpoch).toFloat() / span.toFloat();
+                if (t < 0.0) { t = 0.0; }
+                if (t > 1.0) { t = 1.0; }
+                var cosInterp = (1.0 - Math.cos(t * Math.PI)) / 2.0;
+                var lv = prevLevel + (nextLevel - prevLevel) * cosInterp;
+                level = lv.format("%.2f");
+                isRising = (nextLevel > prevLevel);
+                hasDirection = true;
+            }
+            nextEpochTime = nextEpoch;
+            nextLevelStr = nextLevel.format("%.2f");
+            nextType = anchors[4] as Lang.String;
+        } else {
+            // Fallback: server-snapshotted fields (stale if an extremum has passed)
+            level = fmtFloat(data, "waterLevel", "%.2f");
+            var rising = data["tideRising"];
+            hasDirection = (rising != null);
+            isRising = (hasDirection && (rising as Lang.Boolean));
+            nextEpochTime = numVal(data, "nextTideEpoch");
+            nextLevelStr = fmtFloat(data, "nextTideLevel", "%.2f");
+            nextType = strVal(data, "nextTideType");
+        }
 
         // Tide arrow icon
         var arrowX = w / 2;
@@ -113,15 +146,12 @@ class SwimfoWidgetView extends WatchUi.View {
             label, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Next tide
-        var nextLevel = fmtFloat(data, "nextTideLevel", "%.2f");
-        var nextEpochTime = numVal(data, "nextTideEpoch");
-        var nextType = strVal(data, "nextTideType");
         if (nextEpochTime != null && nextType != null) {
-            var g = Gregorian.info(new Time.Moment(nextEpochTime), Time.FORMAT_SHORT);
+            var g = Gregorian.info(new Time.Moment(nextEpochTime as Lang.Number), Time.FORMAT_SHORT);
             var nextTime = padNum(g.hour) + ":" + padNum(g.min);
             var nextY = h * 7 / 10;
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-            var nextStr = nextType + " " + nextLevel + "m " + nextTime;
+            var nextStr = (nextType as Lang.String) + " " + nextLevelStr + "m " + nextTime;
             dc.drawText(w / 2, nextY, Graphics.FONT_TINY, nextStr,
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
@@ -136,34 +166,51 @@ class SwimfoWidgetView extends WatchUi.View {
         }
     }
 
-    // Cosine interpolation between previous and next tide extrema.
-    // Returns [levelString, isRising, hasDirection].
-    hidden function interpolateTide(data as Lang.Dictionary) as Lang.Array {
-        var prevEpoch = numVal(data, "prevTideEpoch");
-        var nextEpoch = numVal(data, "nextTideEpoch");
-        var prevLevel = floatVal(data, "prevTideLevel");
-        var nextLevel = floatVal(data, "nextTideLevel");
-
-        if (prevEpoch != null && nextEpoch != null && prevLevel != null && nextLevel != null) {
-            var now = Time.now().value();
-            var span = nextEpoch - prevEpoch;
-            if (span > 0) {
-                var t = (now - prevEpoch).toFloat() / span.toFloat();
-                if (t < 0.0) { t = 0.0; }
-                if (t > 1.0) { t = 1.0; }
-                // Cosine interpolation: smooth sinusoidal curve between extrema
-                var cosInterp = (1.0 - Math.cos(t * Math.PI)) / 2.0;
-                var level = prevLevel + (nextLevel - prevLevel) * cosInterp;
-                var rising = (nextLevel > prevLevel);
-                return [level.format("%.2f"), rising, true] as Lang.Array;
+    // Pick HW/LW extrema bracketing `now` from the live tideTable forecast.
+    // Returns [prevEpoch, prevLevel, nextEpoch, nextLevel, nextType] or null.
+    // This stays fresh when an extremum passes between 30-min syncs, unlike
+    // the server-snapshotted prevTide*/nextTide* fields.
+    hidden function pickAnchors(data as Lang.Dictionary, now as Lang.Number) as Lang.Array? {
+        var table = data["tideTable"];
+        if (table == null || !(table instanceof Lang.Array)) { return null; }
+        var entries = table as Lang.Array;
+        var prevE = null;
+        var prevL = null;
+        var nextE = null;
+        var nextL = null;
+        var nextT = null;
+        for (var i = 0; i < entries.size(); i++) {
+            var e = entries[i];
+            if (e == null || !(e instanceof Lang.Dictionary)) { continue; }
+            var rec = e as Lang.Dictionary;
+            var tv = rec["type"];
+            if (!(tv instanceof Lang.String)) { continue; }
+            var ts = tv as Lang.String;
+            if (!ts.equals("HW") && !ts.equals("LW")) { continue; }
+            var ep = rec["epoch"];
+            if (!(ep instanceof Lang.Number)) { continue; }
+            var lv = rec["level"];
+            var lvF = 0.0;
+            if (lv instanceof Lang.Float) {
+                lvF = lv as Lang.Float;
+            } else if (lv instanceof Lang.Number) {
+                lvF = (lv as Lang.Number).toFloat();
+            } else {
+                continue;
+            }
+            var epN = ep as Lang.Number;
+            if (epN <= now) {
+                prevE = epN;
+                prevL = lvF;
+            } else {
+                nextE = epN;
+                nextL = lvF;
+                nextT = ts;
+                break;
             }
         }
-
-        // Fallback to server-computed value
-        var rising = data["tideRising"];
-        var hasDir = (rising != null);
-        var isRising = (hasDir && (rising as Lang.Boolean));
-        return [fmtFloat(data, "waterLevel", "%.2f"), isRising, hasDir] as Lang.Array;
+        if (prevE == null || nextE == null) { return null; }
+        return [prevE, prevL, nextE, nextL, nextT] as Lang.Array;
     }
 
     hidden function drawTideArrow(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number,

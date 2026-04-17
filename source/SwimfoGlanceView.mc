@@ -29,12 +29,15 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
             return;
         }
 
-        // Line 1: tide info (interpolated)
+        // Line 1: tide info (interpolated from live tideTable)
         var parts1 = [] as Lang.Array<Lang.String>;
-        var rising = data["tideRising"];
-        var level = interpTide(data);
-        if (rising != null) {
-            parts1.add((rising as Lang.Boolean) ? "Opk" : "Afg");
+        var now = Time.now().value();
+        var tide = currentTide(data, now);
+        var level = tide[0] as Lang.String;
+        var risingKnown = tide[1] as Lang.Boolean;
+        var isRising = tide[2] as Lang.Boolean;
+        if (risingKnown) {
+            parts1.add(isRising ? "Opk" : "Afg");
         }
         if (!level.equals("--")) { parts1.add(level + "m"); }
         var wt = fmtF(data, "waterTemp", "%.0f");
@@ -54,8 +57,7 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
 
         var line1X = textX;
         var line1Y = h / 3;
-        if (rising != null) {
-            var isRising = rising as Lang.Boolean;
+        if (risingKnown) {
             dc.setColor(isRising ? 0x00AA00 : 0xDD4400, Graphics.COLOR_TRANSPARENT);
             drawArrow(dc, textX + 6, line1Y, isRising);
             line1X = textX + 16;
@@ -79,27 +81,71 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
         return "--";
     }
 
-    hidden function interpTide(d as Lang.Dictionary) as Lang.String {
-        var pe = d["prevTideEpoch"];
-        var ne = d["nextTideEpoch"];
-        var pl = d["prevTideLevel"];
-        var nl = d["nextTideLevel"];
-        if (pe != null && ne != null && pl != null && nl != null) {
-            var prevE = (pe instanceof Lang.Float) ? (pe as Lang.Float).toNumber() : (pe as Lang.Number);
-            var nextE = (ne instanceof Lang.Float) ? (ne as Lang.Float).toNumber() : (ne as Lang.Number);
-            var prevL = (pl instanceof Lang.Float) ? (pl as Lang.Float) : (pl as Lang.Number).toFloat();
-            var nextL = (nl instanceof Lang.Float) ? (nl as Lang.Float) : (nl as Lang.Number).toFloat();
+    // Returns [levelStr, risingKnown, isRising]. Picks HW/LW anchors from the
+    // live tideTable so we stay accurate when an extremum crosses between syncs.
+    // Falls back to server-snapshotted prev/next fields, then raw waterLevel.
+    hidden function currentTide(d as Lang.Dictionary, now as Lang.Number) as Lang.Array {
+        var anchors = pickAnchors(d, now);
+        if (anchors != null) {
+            var prevE = anchors[0] as Lang.Number;
+            var prevL = anchors[1] as Lang.Float;
+            var nextE = anchors[2] as Lang.Number;
+            var nextL = anchors[3] as Lang.Float;
             var span = nextE - prevE;
             if (span > 0) {
-                var now = Time.now().value();
                 var t = (now - prevE).toFloat() / span.toFloat();
                 if (t < 0.0) { t = 0.0; }
                 if (t > 1.0) { t = 1.0; }
                 var v = prevL + (nextL - prevL) * (1.0 - Math.cos(t * Math.PI)) / 2.0;
-                return v.format("%.2f");
+                return [v.format("%.2f"), true, nextL > prevL] as Lang.Array;
             }
         }
-        return fmtF(d, "waterLevel", "%.2f");
+        // Fallback: server snapshot
+        var sr = d["tideRising"];
+        var hasDir = (sr != null);
+        var isRising = (hasDir && (sr as Lang.Boolean));
+        return [fmtF(d, "waterLevel", "%.2f"), hasDir, isRising] as Lang.Array;
+    }
+
+    hidden function pickAnchors(d as Lang.Dictionary, now as Lang.Number) as Lang.Array? {
+        var table = d["tideTable"];
+        if (table == null || !(table instanceof Lang.Array)) { return null; }
+        var entries = table as Lang.Array;
+        var prevE = null;
+        var prevL = null;
+        var nextE = null;
+        var nextL = null;
+        for (var i = 0; i < entries.size(); i++) {
+            var e = entries[i];
+            if (e == null || !(e instanceof Lang.Dictionary)) { continue; }
+            var rec = e as Lang.Dictionary;
+            var tv = rec["type"];
+            if (!(tv instanceof Lang.String)) { continue; }
+            var ts = tv as Lang.String;
+            if (!ts.equals("HW") && !ts.equals("LW")) { continue; }
+            var ep = rec["epoch"];
+            if (!(ep instanceof Lang.Number)) { continue; }
+            var lv = rec["level"];
+            var lvF = 0.0;
+            if (lv instanceof Lang.Float) {
+                lvF = lv as Lang.Float;
+            } else if (lv instanceof Lang.Number) {
+                lvF = (lv as Lang.Number).toFloat();
+            } else {
+                continue;
+            }
+            var epN = ep as Lang.Number;
+            if (epN <= now) {
+                prevE = epN;
+                prevL = lvF;
+            } else {
+                nextE = epN;
+                nextL = lvF;
+                break;
+            }
+        }
+        if (prevE == null || nextE == null) { return null; }
+        return [prevE, prevL, nextE, nextL] as Lang.Array;
     }
 
     hidden function drawArrow(dc as Graphics.Dc, cx as Lang.Number, cy as Lang.Number,

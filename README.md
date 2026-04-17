@@ -97,6 +97,18 @@ Swimfo uses two free public APIs -- no API keys required:
 
 More information about Dutch tides: [Rijkswaterstaat - Getij](https://www.rijkswaterstaat.nl/water/waterdata/getij#ritme-van-eb-en-vloed)
 
+### Water level between measurements
+
+RWS delivers predicted extrema (HW/LW) plus coarse samples in between. The server packs a multi-day HW/LW forecast into the sync payload; on each redraw the watch picks the extrema bracketing the current clock time from that forecast and interpolates between them using a raised-cosine curve:
+
+```
+t         = (now - prevEpoch) / (nextEpoch - prevEpoch)    // 0..1
+cosInterp = (1 - cos(t · π)) / 2                           // eased 0..1
+level     = prevLevel + (nextLevel - prevLevel) · cosInterp
+```
+
+The curve is flat near HW and LW and steepest midway — a good match for the near-sinusoidal shape of a tidal cycle, and closer to reality than linear interpolation (which would overstate change near the turn and understate it mid-cycle). Because the anchors are reselected from the forecast on every redraw, the shown direction (Opk/Afg) flips at the exact moment a predicted extremum passes — no 30-minute lag waiting for the next sync. If the forecast table is missing, the watch falls back to the server-snapshotted prev/next fields, and finally to the raw RWS measurement closest to now.
+
 ## Development
 
 ### Prerequisites

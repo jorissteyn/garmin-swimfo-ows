@@ -247,10 +247,10 @@ function parseTide(data) {
     result.tideRising = points[nowIdx].value > points[nowIdx - 1].value;
   }
 
-  // Tide table: limit to most recent past + next ~3 days of extrema to fit
-  // CIQ response memory budget (-300 errors when too large).
+  // Tide table: most recent past extremum + next ~7 days of extrema.
+  // RWS gives us 7 days forward; watch parses 28 HW/LW + a few SPR/DTJ fine.
   const nowSec = nowMs / 1000;
-  const futureLimit = 12; // ~3 days of HW/LW
+  const futureLimit = 28; // ~7 days of HW/LW
   const past = extrema.filter((e) => e.epoch <= nowSec).slice(-1);
   const future = extrema.filter((e) => e.epoch > nowSec).slice(0, futureLimit);
   // Only type/level/epoch — time and date are derived on the watch from epoch.
