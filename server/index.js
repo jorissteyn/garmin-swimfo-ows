@@ -238,7 +238,6 @@ function parseTide(data) {
     log(`  tide: next ${next.type} at ${localTime(points[next.idx].time)} = ${next.level.toFixed(3)}m`);
     result.nextTideLevel = Math.round(next.level * 100) / 100;
     result.nextTideEpoch = Math.floor(next.epoch);
-    result.nextTideTime = localTime(points[next.idx].time);
     result.nextTideType = next.type;
   }
 

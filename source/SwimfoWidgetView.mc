@@ -114,9 +114,11 @@ class SwimfoWidgetView extends WatchUi.View {
 
         // Next tide
         var nextLevel = fmtFloat(data, "nextTideLevel", "%.2f");
-        var nextTime = strVal(data, "nextTideTime");
+        var nextEpochTime = numVal(data, "nextTideEpoch");
         var nextType = strVal(data, "nextTideType");
-        if (nextTime != null && nextType != null) {
+        if (nextEpochTime != null && nextType != null) {
+            var g = Gregorian.info(new Time.Moment(nextEpochTime), Time.FORMAT_SHORT);
+            var nextTime = padNum(g.hour) + ":" + padNum(g.min);
             var nextY = h * 7 / 10;
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
             var nextStr = nextType + " " + nextLevel + "m " + nextTime;

@@ -52,7 +52,16 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
         var wind = fmtF(data, "windSpeed", "%.0f");
         if (!wind.equals("--")) { parts2.add(wind + "km/h"); }
 
-        dc.drawText(textX, h / 3, Graphics.FONT_GLANCE, line1,
+        var line1X = textX;
+        var line1Y = h / 3;
+        if (rising != null) {
+            var isRising = rising as Lang.Boolean;
+            dc.setColor(isRising ? 0x00AA00 : 0xDD4400, Graphics.COLOR_TRANSPARENT);
+            drawArrow(dc, textX + 6, line1Y, isRising);
+            line1X = textX + 16;
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        }
+        dc.drawText(line1X, line1Y, Graphics.FONT_GLANCE, line1,
             Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
         if (parts2.size() > 0) {
@@ -91,6 +100,16 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
             }
         }
         return fmtF(d, "waterLevel", "%.2f");
+    }
+
+    hidden function drawArrow(dc as Graphics.Dc, cx as Lang.Number, cy as Lang.Number,
+            up as Lang.Boolean) as Void {
+        var s = 5;
+        if (up) {
+            dc.fillPolygon([[cx, cy - s], [cx - s, cy + s], [cx + s, cy + s]] as Lang.Array);
+        } else {
+            dc.fillPolygon([[cx, cy + s], [cx - s, cy - s], [cx + s, cy - s]] as Lang.Array);
+        }
     }
 
     hidden function joinArr(arr as Lang.Array, sep as Lang.String) as Lang.String {

@@ -220,8 +220,14 @@ for (const [loc, types] of Object.entries(byLocation)) {
   // ── Page 1: Tide ──
   const arrowChar = rising != null ? (rising ? `${GREEN}\u25b2${RESET}` : `${RED}\u25bc${RESET}`) : " ";
   const tideLabel = rising != null ? (rising ? "Opkomend" : "Afgaand") : "---";
+  const nextTimeStr = tide.nextTideEpoch
+    ? new Date(tide.nextTideEpoch * 1000).toLocaleTimeString("nl-NL", {
+        hour: "2-digit", minute: "2-digit", hour12: false,
+        timeZone: "Europe/Amsterdam",
+      })
+    : "";
   const nextLine = tide.nextTideType
-    ? `${tide.nextTideType} ${tide.nextTideLevel?.toFixed(2) || "--"}m  ${tide.nextTideTime || ""}`
+    ? `${tide.nextTideType} ${tide.nextTideLevel?.toFixed(2) || "--"}m  ${nextTimeStr}`
     : `${DIM}geen getijdata${RESET}`;
 
   const tidePage = [

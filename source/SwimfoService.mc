@@ -50,7 +50,7 @@ class SwimfoService extends System.ServiceDelegate {
             var keys = ["locName", "airTemp", "windSpeed", "waterTemp",
                         "waterLevel", "tideRising",
                         "prevTideLevel", "prevTideEpoch", "prevTideType",
-                        "nextTideLevel", "nextTideEpoch", "nextTideTime",
+                        "nextTideLevel", "nextTideEpoch",
                         "nextTideType", "tideTable",
                         "moonLabel"] as Lang.Array<Lang.String>;
             for (var i = 0; i < keys.size(); i++) {

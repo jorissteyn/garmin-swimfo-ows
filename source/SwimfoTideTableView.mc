@@ -133,17 +133,13 @@ class SwimfoTideTableView extends WatchUi.View {
                 dc.fillPolygon([[arrowX, arrowCy + arrowS], [arrowX - arrowS, arrowCy - arrowS], [arrowX + arrowS, arrowCy - arrowS]] as Lang.Array);
             }
 
-            // Type label
-            dc.drawText(w / 5, y, Graphics.FONT_TINY, typeStr,
-                Graphics.TEXT_JUSTIFY_LEFT);
-
             // Level
             dc.setColor(isPast ? dim : fg, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, y, Graphics.FONT_TINY, levelStr,
+            dc.drawText(w * 2 / 5, y, Graphics.FONT_TINY, levelStr,
                 Graphics.TEXT_JUSTIFY_CENTER);
 
             // Time
-            dc.drawText(w * 5 / 6, y, Graphics.FONT_TINY, timeStr,
+            dc.drawText(w * 3 / 4, y, Graphics.FONT_TINY, timeStr,
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
 

@@ -62,7 +62,7 @@ The proxy server aggregates multiple upstream APIs into a single compact respons
   "waterLevel": 1.83,
   "tideRising": true,
   "nextTideLevel": 3.21,
-  "nextTideTime": "14:32",
+  "nextTideEpoch": 1744639920,
   "nextTideType": "HW"
 }
 ```
