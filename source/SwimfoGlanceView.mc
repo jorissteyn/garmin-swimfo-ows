@@ -100,8 +100,7 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
                 return [v.format("%.2f"), true, nextL > prevL] as Lang.Array;
             }
         }
-        // No usable forecast: show raw sync-time water level, no direction.
-        return [fmtF(d, "waterLevel", "%.2f"), false, false] as Lang.Array;
+        return ["--", false, false] as Lang.Array;
     }
 
     hidden function pickAnchors(d as Lang.Dictionary, now as Lang.Number) as Lang.Array? {

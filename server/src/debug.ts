@@ -11,7 +11,6 @@ interface TideExtremum {
 }
 
 interface TideData {
-  waterLevel?: number;
   tideTable?: TideExtremum[];
 }
 
@@ -148,7 +147,6 @@ for (const [loc, types] of Object.entries(byLocation)) {
 
   console.log(`\n  ${BOLD}${locName.toUpperCase()}${RESET}\n`);
 
-  // ── Water level (API + interpolated) ──
   // Pick prev/next extrema from tideTable at current time, mirroring the watch.
   const nowSec = Date.now() / 1000;
   let prevX: TideExtremum | null = null;
@@ -162,8 +160,7 @@ for (const [loc, types] of Object.entries(byLocation)) {
   }
   const rising = prevX && nextX ? (nextX.level ?? 0) > (prevX.level ?? 0) : null;
   const dir = rising != null ? (rising ? "Opk" : "Afg") : "---";
-  const apiLvl = tide.waterLevel != null ? `${tide.waterLevel.toFixed(2)}m` : "--";
-  let interpLvl = "--";
+  let lvl = "--";
   if (prevX && nextX) {
     const span = nextX.epoch - prevX.epoch;
     if (span > 0) {
@@ -171,10 +168,9 @@ for (const [loc, types] of Object.entries(byLocation)) {
       t = Math.max(0, Math.min(1, t));
       const cosInterp = (1 - Math.cos(t * Math.PI)) / 2;
       const interp = (prevX.level ?? 0) + ((nextX.level ?? 0) - (prevX.level ?? 0)) * cosInterp;
-      interpLvl = `${interp.toFixed(2)}m`;
+      lvl = `${interp.toFixed(2)}m`;
     }
   }
-  const lvl = interpLvl !== "--" ? interpLvl : apiLvl;
   const wt = watertemp.waterTemp != null ? `w${Math.round(watertemp.waterTemp)}\u00b0` : "";
   const at = weather.airTemp != null ? `${Math.round(weather.airTemp)}\u00b0` : "";
   const ws = weather.windSpeed != null ? `${Math.round(weather.windSpeed)}km/h` : "";
@@ -194,8 +190,7 @@ for (const [loc, types] of Object.entries(byLocation)) {
   const nextInfo = nextX ? fmtExtremum(nextX) : `${DIM}none${RESET}`;
 
   const tideDataLines = [
-    `  API level:    ${BOLD}${apiLvl}${RESET}`,
-    `  Interpolated: ${BOLD}${interpLvl}${RESET}`,
+    `  Interpolated:  ${BOLD}${lvl}${RESET}`,
     `  Prev extremum: ${prevInfo}`,
     `  Next extremum: ${nextInfo}`,
   ];

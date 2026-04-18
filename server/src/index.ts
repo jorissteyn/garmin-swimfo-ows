@@ -81,7 +81,6 @@ interface TideExtremum {
 }
 
 interface TideResult {
-  waterLevel?: number;
   tideTable?: TideExtremum[];
 }
 
@@ -241,21 +240,9 @@ function parseTide(data: RwsResponse): TideResult {
 
   if (points.length < 3) return result;
 
-  // Closest to now
   const nowMs = Date.now();
-  let nowIdx = 0;
-  let minDiff = Infinity;
-  for (let i = 0; i < points.length; i++) {
-    const diff = Math.abs(new Date(points[i].time).getTime() - nowMs);
-    if (diff < minDiff) {
-      minDiff = diff;
-      nowIdx = i;
-    }
-  }
 
-  result.waterLevel = Math.round(points[nowIdx].value * 100) / 100;
-
-  log(`  tide: ${points.length} points, nowIdx=${nowIdx} (${points[nowIdx].time})`);
+  log(`  tide: ${points.length} points`);
 
   // Find all extrema using direction-change algorithm with plateau midpoints
   const extrema = findExtrema(points);

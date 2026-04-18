@@ -59,7 +59,6 @@ The proxy server aggregates multiple upstream APIs into a single compact respons
   "airTemp": 15.2,
   "windSpeed": 12.5,
   "waterTemp": 11.0,
-  "waterLevel": 1.83,
   "moonLabel": "springtij",
   "tideTable": [
     { "type": "LW", "level": -2.02, "epoch": 1744635600 },

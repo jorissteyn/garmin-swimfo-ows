@@ -114,9 +114,6 @@ class SwimfoWidgetView extends WatchUi.View {
             nextEpochTime = nextEpoch;
             nextLevelStr = nextLevel.format("%.2f");
             nextType = anchors[4] as Lang.String;
-        } else {
-            // No usable forecast: show the raw sync-time water level, no arrow.
-            level = fmtFloat(data, "waterLevel", "%.2f");
         }
 
         // Tide arrow icon
