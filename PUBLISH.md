@@ -40,7 +40,7 @@ Plain text only — geen markdown. Kopjes worden in HOOFDLETTERS weergegeven.
 
 VOOR DE ZEEUWSE OPEN WATER ZWEMMER
 
-Alles wat je nodig hebt voor een duik in de Westerschelde of Oosterschelde, recht op je pols. Geen abonnement, geen reclame, geen account — gewoon aanzetten en zwemmen.
+Alles wat je nodig hebt voor een duik in de Westerschelde of Oosterschelde, op je pols.
 
 GETIJ OP ELK MOMENT
 Zie in één oogopslag of het water opkomt of afgaat, hoe hoog het nu staat, en wanneer het volgende hoogwater of laagwater komt. De app schat het actuele waterpeil continu bij op basis van de getijvoorspelling, zodat het cijfer tussen metingen door vloeiend meebeweegt met het echte tij — ook als je horloge even geen verbinding heeft. Groen pijltje omhoog betekent opkomend water, rood pijltje omlaag betekent afgaand.
@@ -61,13 +61,14 @@ GLANCE IN JE WIDGET-CARROUSEL
 De belangrijkste info — tijrichting, waterhoogte, watertemperatuur, lucht en wind — samengevat op twee regels, zichtbaar zonder de app te openen. Als je de glance in je carrousel zet, werkt de data elke 30 minuten automatisch bij op de achtergrond.
 
 KIES JE LOCATIE
-- Westerschelde (Vlissingen)
-- Oosterschelde (Oesterdam / meetpunt Marollegat)
-- Westerschelde (Ossenisse)
-- Westerschelde (Terneuzen) — geen watertemperatuur beschikbaar
-- Veerse Meer (meetpunt Oranjeplaat) — geen getij beschikbaar
 
-Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je een andere locatie. Het Veerse Meer is sinds de aanleg van de Veerse Gatdam (1961) een afgesloten meer zonder getij — voor die locatie toont de app "N/A" op de getijpagina's; watertemperatuur en weer werken gewoon.
+ - Westerschelde (Vlissingen)
+ - Westerschelde (Ossenisse)
+ - Westerschelde (Terneuzen)
+ - Oosterschelde (Oesterdam, meetpunt Marollegat)
+ - Veerse Meer (Oranjeplaat) - non-tidal
+
+Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je een andere locatie.
 
 GEGEVENSBRONNEN
 - Getij en watertemperatuur: Rijkswaterstaat (waterinfo.rws.nl)
