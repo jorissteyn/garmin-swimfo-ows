@@ -187,6 +187,24 @@ make server-clean   # remove server artifacts
 make DEVICE=venu2 build
 ```
 
+### Sideloading alongside the store build
+
+`manifest.xml` carries the production UUID (`871b853b-…`) published to the Connect IQ store. Garmin identifies apps by that UUID, so a sideloaded debug build with the same UUID collides with the store-installed copy — the watch refuses the second install, or the store auto-update reverts your dev changes.
+
+When developing against a watch that already has the store build, temporarily swap the UUID to the previous dev value so both can coexist:
+
+```bash
+# before sideloading a dev build
+sed -i 's/871b853b-bf14-48a4-95ad-6dcc2c6ae471/4296c8ec-ce06-4e75-becf-e30dda703700/' manifest.xml
+
+# do your thing: make build, push .prg to the watch, test
+
+# restore before committing or before `make release`
+sed -i 's/4296c8ec-ce06-4e75-becf-e30dda703700/871b853b-bf14-48a4-95ad-6dcc2c6ae471/' manifest.xml
+```
+
+Never commit the dev UUID and never upload a `.iq` built with it to the store — the store ties ratings, installs, and update delivery to the production UUID.
+
 ### SDK reference
 
 Useful local paths when digging into Connect IQ behavior:
