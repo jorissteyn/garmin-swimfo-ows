@@ -107,7 +107,7 @@ cosInterp = (1 - cos(t · π)) / 2                           // eased 0..1
 level     = prevLevel + (nextLevel - prevLevel) · cosInterp
 ```
 
-The curve is flat near HW and LW and steepest midway — a good match for the near-sinusoidal shape of a tidal cycle, and closer to reality than linear interpolation (which would overstate change near the turn and understate it mid-cycle). Because the anchors are reselected from the forecast on every redraw, the shown direction (Opk/Afg) flips at the exact moment a predicted extremum passes — no 30-minute lag waiting for the next sync. If the forecast table is missing, the watch falls back to the server-snapshotted prev/next fields, and finally to the raw RWS measurement closest to now.
+The curve is flat near HW and LW and steepest midway — a good match for the near-sinusoidal shape of a tidal cycle, and closer to reality than linear interpolation (which would overstate change near the turn and understate it mid-cycle). Because the anchors are reselected from the forecast on every redraw, the shown direction (Opk/Afg) flips at the exact moment a predicted extremum passes — no 30-minute lag waiting for the next sync. The server only sends the forecast table and the current raw level; prev/next are not snapshotted. If the forecast table is missing, the watch falls back to the raw RWS measurement with no direction.
 
 ## Development
 

@@ -150,18 +150,28 @@ for (const [loc, types] of Object.entries(byLocation)) {
   console.log(`\n  ${BOLD}${locName.toUpperCase()}${RESET}\n`);
 
   // ── Water level (API + interpolated) ──
-  const rising = tide.tideRising;
+  // Pick prev/next extrema from tideTable at current time, mirroring the watch.
+  const nowSec = Date.now() / 1000;
+  let prevX = null;
+  let nextX = null;
+  if (Array.isArray(tide.tideTable)) {
+    for (const e of tide.tideTable) {
+      if (e.type !== "HW" && e.type !== "LW") continue;
+      if (e.epoch <= nowSec) prevX = e;
+      else if (!nextX) { nextX = e; break; }
+    }
+  }
+  const rising = prevX && nextX ? nextX.level > prevX.level : null;
   const dir = rising != null ? (rising ? "Opk" : "Afg") : "---";
   const apiLvl = tide.waterLevel != null ? `${tide.waterLevel.toFixed(2)}m` : "--";
   let interpLvl = "--";
-  if (tide.prevTideEpoch && tide.nextTideEpoch && tide.prevTideLevel != null && tide.nextTideLevel != null) {
-    const now = Date.now() / 1000;
-    const span = tide.nextTideEpoch - tide.prevTideEpoch;
+  if (prevX && nextX) {
+    const span = nextX.epoch - prevX.epoch;
     if (span > 0) {
-      let t = (now - tide.prevTideEpoch) / span;
+      let t = (nowSec - prevX.epoch) / span;
       t = Math.max(0, Math.min(1, t));
       const cosInterp = (1 - Math.cos(t * Math.PI)) / 2;
-      const interp = tide.prevTideLevel + (tide.nextTideLevel - tide.prevTideLevel) * cosInterp;
+      const interp = prevX.level + (nextX.level - prevX.level) * cosInterp;
       interpLvl = `${interp.toFixed(2)}m`;
     }
   }
@@ -179,12 +189,10 @@ for (const [loc, types] of Object.entries(byLocation)) {
   ], W));
 
   // ── Tide debug ──
-  const prevInfo = tide.prevTideEpoch
-    ? `${tide.prevTideType} ${tide.prevTideLevel?.toFixed(2)}m @ ${new Date(tide.prevTideEpoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`
-    : `${DIM}none${RESET}`;
-  const nextInfo = tide.nextTideEpoch
-    ? `${tide.nextTideType} ${tide.nextTideLevel?.toFixed(2)}m @ ${new Date(tide.nextTideEpoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}`
-    : `${DIM}none${RESET}`;
+  const fmtExtremum = (x) =>
+    `${x.type} ${x.level.toFixed(2)}m @ ${new Date(x.epoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
+  const prevInfo = prevX ? fmtExtremum(prevX) : `${DIM}none${RESET}`;
+  const nextInfo = nextX ? fmtExtremum(nextX) : `${DIM}none${RESET}`;
 
   const tideDataLines = [
     `  API level:    ${BOLD}${apiLvl}${RESET}`,
@@ -194,7 +202,6 @@ for (const [loc, types] of Object.entries(byLocation)) {
   ];
   if (Array.isArray(tide.tideTable) && tide.tideTable.length > 0) {
     tideDataLines.push("");
-    const nowSec = Date.now() / 1000;
     const dateKey = (epoch) =>
       new Date(epoch * 1000).toLocaleDateString("nl-NL", {
         weekday: "short", day: "numeric", month: "short",
@@ -241,14 +248,14 @@ for (const [loc, types] of Object.entries(byLocation)) {
   // ── Page 1: Tide ──
   const arrowChar = rising != null ? (rising ? `${GREEN}\u25b2${RESET}` : `${RED}\u25bc${RESET}`) : " ";
   const tideLabel = rising != null ? (rising ? "Opkomend" : "Afgaand") : "---";
-  const nextTimeStr = tide.nextTideEpoch
-    ? new Date(tide.nextTideEpoch * 1000).toLocaleTimeString("nl-NL", {
+  const nextTimeStr = nextX
+    ? new Date(nextX.epoch * 1000).toLocaleTimeString("nl-NL", {
         hour: "2-digit", minute: "2-digit", hour12: false,
         timeZone: "Europe/Amsterdam",
       })
     : "";
-  const nextLine = tide.nextTideType
-    ? `${tide.nextTideType} ${tide.nextTideLevel?.toFixed(2) || "--"}m  ${nextTimeStr}`
+  const nextLine = nextX
+    ? `${nextX.type} ${nextX.level.toFixed(2)}m  ${nextTimeStr}`
     : `${DIM}geen getijdata${RESET}`;
 
   const tidePage = [

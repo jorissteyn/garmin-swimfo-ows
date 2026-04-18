@@ -60,10 +60,12 @@ The proxy server aggregates multiple upstream APIs into a single compact respons
   "windSpeed": 12.5,
   "waterTemp": 11.0,
   "waterLevel": 1.83,
-  "tideRising": true,
-  "nextTideLevel": 3.21,
-  "nextTideEpoch": 1744639920,
-  "nextTideType": "HW"
+  "moonLabel": "springtij",
+  "tideTable": [
+    { "type": "LW", "level": -2.02, "epoch": 1744635600 },
+    { "type": "HW", "level":  3.21, "epoch": 1744639920 },
+    { "type": "SPR", "epoch": 1744700000 }
+  ]
 }
 ```
 

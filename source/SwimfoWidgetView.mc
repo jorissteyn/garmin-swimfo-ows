@@ -115,14 +115,8 @@ class SwimfoWidgetView extends WatchUi.View {
             nextLevelStr = nextLevel.format("%.2f");
             nextType = anchors[4] as Lang.String;
         } else {
-            // Fallback: server-snapshotted fields (stale if an extremum has passed)
+            // No usable forecast: show the raw sync-time water level, no arrow.
             level = fmtFloat(data, "waterLevel", "%.2f");
-            var rising = data["tideRising"];
-            hasDirection = (rising != null);
-            isRising = (hasDirection && (rising as Lang.Boolean));
-            nextEpochTime = numVal(data, "nextTideEpoch");
-            nextLevelStr = fmtFloat(data, "nextTideLevel", "%.2f");
-            nextType = strVal(data, "nextTideType");
         }
 
         // Tide arrow icon
@@ -168,8 +162,9 @@ class SwimfoWidgetView extends WatchUi.View {
 
     // Pick HW/LW extrema bracketing `now` from the live tideTable forecast.
     // Returns [prevEpoch, prevLevel, nextEpoch, nextLevel, nextType] or null.
-    // This stays fresh when an extremum passes between 30-min syncs, unlike
-    // the server-snapshotted prevTide*/nextTide* fields.
+    // The server sends the forecast once per sync; the watch reselects anchors
+    // on every redraw so the shown direction flips exactly when an extremum
+    // passes, not 30 minutes later.
     hidden function pickAnchors(data as Lang.Dictionary, now as Lang.Number) as Lang.Array? {
         var table = data["tideTable"];
         if (table == null || !(table instanceof Lang.Array)) { return null; }

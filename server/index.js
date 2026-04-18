@@ -216,43 +216,22 @@ function parseTide(data) {
   const extrema = findExtrema(points);
   log(`  tide: found ${extrema.length} extrema`);
 
-  // Find previous and next extrema relative to now
-  let prev = null;
-  let next = null;
-  for (let i = 0; i < extrema.length; i++) {
-    if (extrema[i].epoch <= nowMs / 1000) {
-      prev = extrema[i];
-    } else if (!next) {
-      next = extrema[i];
-    }
-  }
-
-  if (prev) {
-    log(`  tide: prev ${prev.type} at ${localTime(points[prev.idx].time)} = ${prev.level.toFixed(3)}m`);
-    result.prevTideLevel = Math.round(prev.level * 100) / 100;
-    result.prevTideEpoch = Math.floor(prev.epoch);
-    result.prevTideType = prev.type;
-  }
-
-  if (next) {
-    log(`  tide: next ${next.type} at ${localTime(points[next.idx].time)} = ${next.level.toFixed(3)}m`);
-    result.nextTideLevel = Math.round(next.level * 100) / 100;
-    result.nextTideEpoch = Math.floor(next.epoch);
-    result.nextTideType = next.type;
-  }
-
-  if (prev && next) {
-    result.tideRising = next.type === "HW";
-  } else if (nowIdx > 0) {
-    result.tideRising = points[nowIdx].value > points[nowIdx - 1].value;
-  }
-
   // Tide table: most recent past extremum + next ~7 days of extrema.
   // RWS gives us 7 days forward; watch parses 28 HW/LW + a few SPR/DTJ fine.
+  // The watch derives prev/next/direction from this table at render time, so
+  // it stays accurate when an extremum passes between 30-min syncs.
   const nowSec = nowMs / 1000;
   const futureLimit = 28; // ~7 days of HW/LW
   const past = extrema.filter((e) => e.epoch <= nowSec).slice(-1);
   const future = extrema.filter((e) => e.epoch > nowSec).slice(0, futureLimit);
+  if (past.length > 0) {
+    const p = past[0];
+    log(`  tide: prev ${p.type} at ${localTime(new Date(p.epoch * 1000).toISOString())} = ${p.level.toFixed(3)}m`);
+  }
+  if (future.length > 0) {
+    const n = future[0];
+    log(`  tide: next ${n.type} at ${localTime(new Date(n.epoch * 1000).toISOString())} = ${n.level.toFixed(3)}m`);
+  }
   // Only type/level/epoch — time and date are derived on the watch from epoch.
   // Keeps the parsed Dictionary small (every extra key costs ~40-80B in CIQ).
   const tideRows = [...past, ...future].map((e) => ({

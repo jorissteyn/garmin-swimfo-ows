@@ -82,8 +82,8 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
     }
 
     // Returns [levelStr, risingKnown, isRising]. Picks HW/LW anchors from the
-    // live tideTable so we stay accurate when an extremum crosses between syncs.
-    // Falls back to server-snapshotted prev/next fields, then raw waterLevel.
+    // live tideTable, reselected on every redraw, so direction stays correct
+    // when an extremum passes between 30-min syncs.
     hidden function currentTide(d as Lang.Dictionary, now as Lang.Number) as Lang.Array {
         var anchors = pickAnchors(d, now);
         if (anchors != null) {
@@ -100,11 +100,8 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
                 return [v.format("%.2f"), true, nextL > prevL] as Lang.Array;
             }
         }
-        // Fallback: server snapshot
-        var sr = d["tideRising"];
-        var hasDir = (sr != null);
-        var isRising = (hasDir && (sr as Lang.Boolean));
-        return [fmtF(d, "waterLevel", "%.2f"), hasDir, isRising] as Lang.Array;
+        // No usable forecast: show raw sync-time water level, no direction.
+        return [fmtF(d, "waterLevel", "%.2f"), false, false] as Lang.Array;
     }
 
     hidden function pickAnchors(d as Lang.Dictionary, now as Lang.Number) as Lang.Array? {
