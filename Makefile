@@ -20,7 +20,10 @@ TMP_DIR       = $(CURDIR)/bin/.tmp
 export TMPDIR := $(TMP_DIR)
 export TEMP   := $(TMP_DIR)
 export TMP    := $(TMP_DIR)
-export _JAVA_OPTIONS := -Djava.io.tmpdir=$(TMP_DIR)
+# -Djava.awt.headless=true lets the package tool scale launcher icons on
+# headless machines (e.g. over SSH without X); without it `make release`
+# crashes with "Can't connect to X11 window server".
+export _JAVA_OPTIONS := -Djava.io.tmpdir=$(TMP_DIR) -Djava.awt.headless=true
 
 PRG           = $(OUT_DIR)/$(APP_NAME).prg
 PRG_DEV       = $(OUT_DIR)/$(APP_NAME)-dev.prg
