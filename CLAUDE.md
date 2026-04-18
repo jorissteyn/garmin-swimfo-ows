@@ -86,7 +86,7 @@ Defined in two places (keep in sync):
 
 Current locations:
 - Vlissingen: rwsCode `vlissingen`
-- Kattendijke: rwsCode `yerseke`
+- Yerseke: rwsCode `yerseke`
 
 To add a location: add to both Locations.mc and server LOCATIONS, add list entry in `resources/settings/settings.xml`, add string in `resources/strings/strings.xml`.
 

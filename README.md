@@ -41,7 +41,7 @@ Page 3: Weather    Page 4: Sync
 | Location     | RWS station | Body of water  |
 |-------------|-------------|----------------|
 | Vlissingen  | vlissingen  | Westerschelde  |
-| Kattendijke | yerseke     | Oosterschelde  |
+| Yerseke     | yerseke     | Oosterschelde  |
 
 ## Supported devices
 

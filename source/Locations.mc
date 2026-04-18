@@ -10,7 +10,7 @@ module Locations {
     function get(id as Lang.Number) as Lang.Dictionary {
         if (id == 1) {
             return {
-                "name" => "Kattendijke",
+                "name" => "Yerseke",
                 "lat" => 51.4933,
                 "lon" => 3.9600,
                 "rwsCode" => "yerseke"

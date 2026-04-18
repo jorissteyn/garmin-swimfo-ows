@@ -25,7 +25,7 @@ const LOCATIONS = {
     rwsCode: "vlissingen",
   },
   yerseke: {
-    name: "Kattendijke",
+    name: "Yerseke",
     lat: 51.4933,
     lon: 3.96,
     rwsCode: "yerseke",

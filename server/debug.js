@@ -6,7 +6,7 @@ const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || "3600000", 10);
 
 const LOCATIONS = {
   vlissingen: { name: "Vlissingen" },
-  yerseke: { name: "Kattendijke" },
+  yerseke: { name: "Yerseke" },
 };
 
 function fmtAge(ms) {
