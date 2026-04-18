@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="5">
-    <iq:application id="4296c8ec-ce06-4e75-becf-e30dda703700"
+    <iq:application id="871b853b-bf14-48a4-95ad-6dcc2c6ae471"
                     type="widget"
                     name="@Strings.AppName"
                     entry="SwimfoApp"
