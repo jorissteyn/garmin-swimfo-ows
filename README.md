@@ -1,6 +1,8 @@
 # Swimfo
 
-Garmin Connect IQ widget for open water swimming conditions in the Netherlands. Shows real-time tide, wind, and temperature data on your watch.
+Garmin Connect IQ widget for open water swimming conditions in Zeeland. Shows real-time tide, wind, and temperature data on your watch.
+
+**→ [Install from the Garmin Connect IQ Store](https://apps.garmin.com/apps/67cd6568-03f6-4d2a-a55c-1fa3c381a655)**
 
 ## Features
 
@@ -36,6 +38,17 @@ Page 3: Weather    Page 4: Sync
     ○ ○ ● ○            ○ ○ ○ ●
 ```
 
+### Screenshots
+
+Simulator captures:
+
+- [Tide](screens/page-1.png) — direction, interpolated level, next HW/LW, springtij/doodtij
+- [Tide table](screens/page-1-table.png) — scrollable 7-day HW/LW grouped by date
+- [Water](screens/page-2.png) — current sea surface temperature
+- [Weather](screens/page-3.png) — air temperature, wind speed, Beaufort
+- [Sync](screens/page-4.png) — last sync time, manual refresh
+- [Store cover](screens/cover.jpg) — listing artwork
+
 ## Supported locations
 
 | Location     | RWS station | Body of water  |
@@ -45,7 +58,9 @@ Page 3: Weather    Page 4: Sync
 
 ## Supported devices
 
-fenix 7 / 7S / 7X, Venu 2 / 2S, Forerunner 955 / 965, epix 2
+Swimfo targets every Connect IQ device that supports widgets with background HTTP — roughly any Garmin watch from ~2018 onward. Tested on fenix 7, built for the full current line-up including Forerunner (165, 255, 265, 570, 955, 965, 970), fenix (5 Plus → 8), epix 2 series, Venu 2 / 3 / X1, vivoactive 4 / 5 / 6, Instinct 2 / 3, Enduro 2 / 3, Descent Mk2 / Mk3, MARQ Gen 1 / Gen 2, and Approach S60 / S62 / S70.
+
+See `manifest.xml` for the exact product list.
 
 ## Installation
 
@@ -107,7 +122,18 @@ cosInterp = (1 - cos(t · π)) / 2                           // eased 0..1
 level     = prevLevel + (nextLevel - prevLevel) · cosInterp
 ```
 
-The curve is flat near HW and LW and steepest midway — a good match for the near-sinusoidal shape of a tidal cycle, and closer to reality than linear interpolation (which would overstate change near the turn and understate it mid-cycle). Because the anchors are reselected from the forecast on every redraw, the shown direction (Opk/Afg) flips at the exact moment a predicted extremum passes — no 30-minute lag waiting for the next sync. The server only sends the forecast table and the current raw level; prev/next are not snapshotted. If the forecast table is missing, the watch falls back to the raw RWS measurement with no direction.
+The curve is flat near HW and LW and steepest midway — a good match for the near-sinusoidal shape of a tidal cycle, and closer to reality than linear interpolation (which would overstate change near the turn and understate it mid-cycle). Because the anchors are reselected from the forecast on every redraw, the shown direction (Opk/Afg) flips at the exact moment a predicted extremum passes — no 30-minute lag waiting for the next sync. The server only sends the forecast table; prev/next are not snapshotted on the watch.
+
+### Springtij and doodtij
+
+The tidal range follows the ~29.5-day lunar synodic cycle. Around new and full moon the sun and moon pull in line and the range peaks (*springtij* — spring tide). Around first and last quarter they pull at right angles and the range is smallest (*doodtij* — neap tide). In Zeeland the actual peak lags the lunar phase by roughly two days, so Swimfo offsets by that amount when labelling days.
+
+No astronomy API is needed — the server computes the phase from a reference new moon (2000-01-06 18:14 UTC) plus the synodic period. Four peaks per cycle (SPR, DTJ, SPR, DTJ) are enumerated around "now"; the nearest peak — measured in Europe/Amsterdam calendar days — drives the label:
+
+- Within 2 days of a peak: `springtij` / `doodtij` on the day itself, or `2d tot springtij` / `1d na doodtij` for neighbours.
+- Otherwise: `Xd tot springtij` / `Xd tot doodtij` counting down to the next peak of any type.
+
+The label appears below the current tide level on the main tide page, and per day in the full tide table — so you can pick swim days with the strongest (springtij) or mildest (doodtij) currents at a glance.
 
 ## Development
 
