@@ -5,6 +5,12 @@ export interface Location {
   lat: number;
   lon: number;
   rwsCode: string;
+  // Some locations (e.g. Veerse Meer) are non-tidal lakes — RWS has no
+  // astronomical tide prediction for them. Default: true.
+  tide?: boolean;
+  // Some RWS stations don't have a live T/OW sensor (e.g. Terneuzen).
+  // Default: true.
+  waterTemp?: boolean;
 }
 
 export const LOCATIONS: Record<string, Location> = {
@@ -14,11 +20,31 @@ export const LOCATIONS: Record<string, Location> = {
     lon: 3.5964,
     rwsCode: "vlissingen",
   },
-  yerseke: {
-    name: "Yerseke",
-    lat: 51.4933,
-    lon: 3.96,
-    rwsCode: "yerseke",
+  marollegat: {
+    name: "Oosterschelde",
+    lat: 51.479747,
+    lon: 4.191958,
+    rwsCode: "marollegat",
+  },
+  ossenisse: {
+    name: "Ossenisse",
+    lat: 51.390833,
+    lon: 3.9925,
+    rwsCode: "ossenisse",
+  },
+  terneuzen: {
+    name: "Terneuzen",
+    lat: 51.336,
+    lon: 3.827,
+    rwsCode: "terneuzen",
+    waterTemp: false,
+  },
+  oranjeplaat: {
+    name: "Oranjeplaat",
+    lat: 51.51661,
+    lon: 3.70014,
+    rwsCode: "arnemuiden.oranjeplaat",
+    tide: false,
   },
 };
 

@@ -51,10 +51,19 @@ Simulator captures:
 
 ## Supported locations
 
-| Location     | RWS station | Body of water  |
-|-------------|-------------|----------------|
-| Vlissingen  | vlissingen  | Westerschelde  |
-| Yerseke     | yerseke     | Oosterschelde  |
+| Display name  | RWS station            | Body of water              | Notes                        |
+|---------------|------------------------|----------------------------|------------------------------|
+| Vlissingen    | vlissingen             | Westerschelde              |                              |
+| Oesterdam     | marollegat             | Oosterschelde              | temp sensor at Marollegat    |
+| Ossenisse     | ossenisse              | Westerschelde              |                              |
+| Terneuzen     | terneuzen              | Westerschelde              | no water temp sensor (`--°C`)|
+| Oranjeplaat   | arnemuiden.oranjeplaat | Veerse Meer (non-tidal)    | no tide (shows N/A)          |
+
+The Oosterschelde temperature sensor at Yerseke (the obvious-sounding choice) has been offline since 1981 — RWS still happily returns 1.0 °C from a mercury thermometer from that year. Marollegat is the nearest site with a live NKE CT sensor reporting every ~10 minutes; the watch labels that location "Oesterdam" since that's the nearest landmark most swimmers know.
+
+The Veerse Meer has been a closed, non-tidal lake since the Veerse Gatdam was built in 1961 (water level is now managed via the Katse Heule). RWS publishes no astronomical tide predictions for Oranjeplaat, so the tide pages show "N/A" — water temp and weather work as usual.
+
+Terneuzen has live tide predictions but no water-temperature sensor (the ones that exist are for lock-chamber water, not the estuary), so the water page shows `--°C`.
 
 ## Supported devices
 

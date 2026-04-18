@@ -90,7 +90,12 @@ Defined in two places (keep in sync):
 
 Current locations:
 - Vlissingen: rwsCode `vlissingen`
-- Yerseke: rwsCode `yerseke`
+- Oesterdam: rwsCode `marollegat` (Yerseke's temperature sensor has been offline since 1981; Marollegat has a live NKE CT sensor. Watch displays "Oesterdam" since that's the more recognizable landmark; settings label is "Oosterschelde (Oesterdam / Marollegat)".)
+- Ossenisse: rwsCode `ossenisse` (Westerschelde; tide + water temp both live)
+- Terneuzen: rwsCode `terneuzen`. No live T/OW sensor — `waterTemp: false` in server LOCATIONS skips the RWS temp fetch; watch shows `--°C` on water page.
+- Oranjeplaat: rwsCode `arnemuiden.oranjeplaat`, URL slug `oranjeplaat`. Non-tidal (Veerse Meer is closed off since 1961) — `tide: false` in server LOCATIONS disables the RWS tide fetch + moon info. Watch shows "N/A" on tide pages, water temp/weather work normally.
+
+Server LOCATIONS keys are URL slugs (must match regex `\w+`); `rwsCode` is sent to RWS as `Locatie.Code` and may contain dots (e.g. `arnemuiden.oranjeplaat`). Watch `rwsCode` must equal the server URL slug (not the RWS code) since it's embedded in the request path.
 
 To add a location: add to both Locations.mc and server LOCATIONS, add list entry in `resources/settings/settings.xml`, add string in `resources/strings/strings.xml`.
 

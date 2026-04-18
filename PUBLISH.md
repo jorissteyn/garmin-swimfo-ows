@@ -61,10 +61,13 @@ GLANCE IN JE WIDGET-CARROUSEL
 De belangrijkste info — tijrichting, waterhoogte, watertemperatuur, lucht en wind — samengevat op twee regels, zichtbaar zonder de app te openen. Als je de glance in je carrousel zet, werkt de data elke 30 minuten automatisch bij op de achtergrond.
 
 KIES JE LOCATIE
-- Vlissingen (Westerschelde)
-- Yerseke (Oosterschelde)
+- Westerschelde (Vlissingen)
+- Oosterschelde (Oesterdam / meetpunt Marollegat)
+- Westerschelde (Ossenisse)
+- Westerschelde (Terneuzen) — geen watertemperatuur beschikbaar
+- Veerse Meer (meetpunt Oranjeplaat) — geen getij beschikbaar
 
-Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je Yerseke.
+Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je een andere locatie. Het Veerse Meer is sinds de aanleg van de Veerse Gatdam (1961) een afgesloten meer zonder getij — voor die locatie toont de app "N/A" op de getijpagina's; watertemperatuur en weer werken gewoon.
 
 GEGEVENSBRONNEN
 - Getij en watertemperatuur: Rijkswaterstaat (waterinfo.rws.nl)

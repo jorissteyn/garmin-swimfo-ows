@@ -381,10 +381,12 @@ const server = http.createServer(async (req, res) => {
   log(`GET /conditions/${code}`);
 
   try {
+    const hasTide = loc.tide !== false;
+    const hasWaterTemp = loc.waterTemp !== false;
     const [weather, tide, waterTemp] = await Promise.all([
       fetchWeather(loc),
-      fetchTide(loc),
-      fetchWaterTemp(loc),
+      hasTide ? fetchTide(loc) : Promise.resolve({}),
+      hasWaterTemp ? fetchWaterTemp(loc) : Promise.resolve({}),
     ]);
 
     const result = {
@@ -392,7 +394,7 @@ const server = http.createServer(async (req, res) => {
       ...weather,
       ...tide,
       ...waterTemp,
-      ...getMoonInfo(),
+      ...(hasTide ? getMoonInfo() : {}),
     };
 
     const json = JSON.stringify(result);

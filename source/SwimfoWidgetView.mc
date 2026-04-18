@@ -86,6 +86,7 @@ class SwimfoWidgetView extends WatchUi.View {
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
         var cy = h * 4 / 10;
         var now = Time.now().value();
+        var hasTideData = (data["tideTable"] instanceof Lang.Array);
         var anchors = pickAnchors(data, now);
 
         var level = "--";
@@ -114,6 +115,17 @@ class SwimfoWidgetView extends WatchUi.View {
             nextEpochTime = nextEpoch;
             nextLevelStr = nextLevel.format("%.2f");
             nextType = anchors[4] as Lang.String;
+        }
+
+        // Non-tidal location (e.g. Veerse Meer): short-circuit with an N/A notice.
+        if (!hasTideData && !(data["lastError"] instanceof Lang.Number)) {
+            dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, cy + 8, Graphics.FONT_MEDIUM, "N/A",
+                Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, cy + 8 + dc.getFontHeight(Graphics.FONT_MEDIUM),
+                Graphics.FONT_XTINY, "Geen getij", Graphics.TEXT_JUSTIFY_CENTER);
+            return;
         }
 
         // Tide arrow icon
