@@ -365,8 +365,8 @@ function getMoonInfo() {
   } else if (sinceNeap <= PHASE_WINDOW_DAYS) {
     label = "doodtij";
   } else {
-    // Transition: next springtij is at the start of the next spring-half-cycle.
-    const daysToNext = (SYNODIC_DAYS / 2) - sinceSpring;
+    // Count down to the next peak (+2d after new/full moon), not to the phase itself.
+    const daysToNext = (SYNODIC_DAYS / 2) - sinceSpring + 2;
     label = `${Math.round(daysToNext)}d tot springtij`;
   }
 
