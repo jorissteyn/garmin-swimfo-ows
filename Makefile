@@ -93,7 +93,7 @@ sim-stop: ## Stop the Connect IQ simulator
 	fi
 
 clean: ## Remove build artifacts
-	rm -rf $(OUT_DIR)
+	rm -rf $(OUT_DIR)/* $(OUT_DIR)/.[!.]*
 
 keygen: ## Generate developer key (one-time setup)
 	@if [ -f $(KEY) ]; then \
