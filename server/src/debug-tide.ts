@@ -1,16 +1,33 @@
 // Standalone tide debug — reads raw RWS dump or fetches fresh data
-const fs = require("fs");
-const path = require("path");
-require("dotenv").config();
+import fs from "fs";
+import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const RWS_BASE = process.env.RWS_BASE_URL || "https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES";
-const CACHE_DIR = path.join(__dirname, "cache");
+const CACHE_DIR = path.join(__dirname, "..", "cache");
 
-function fmtDate(d) {
+interface RwsMeting {
+  Tijdstip?: string;
+  Meetwaarde?: { Waarde_Numeriek?: number };
+}
+
+interface RwsResponse {
+  Succesvol?: boolean;
+  WaarnemingenLijst?: { MetingenLijst?: RwsMeting[] }[];
+}
+
+interface TidePoint {
+  time: string;
+  value: number;
+}
+
+function fmtDate(d: Date): string {
   return d.toISOString().replace("Z", "+00:00");
 }
 
-function localTime(ts) {
+function localTime(ts: string): string {
   try {
     const d = new Date(ts);
     return d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -19,7 +36,7 @@ function localTime(ts) {
   }
 }
 
-async function getRawData(loc) {
+async function getRawData(loc: string): Promise<RwsResponse> {
   const dumpFile = path.join(CACHE_DIR, `tide_${loc}_raw.json`);
   try {
     const raw = fs.readFileSync(dumpFile, "utf8");
@@ -43,13 +60,13 @@ async function getRawData(loc) {
       Periode: { Begindatumtijd: fmtDate(start), Einddatumtijd: fmtDate(end) },
     }),
   });
-  const data = await res.json();
+  const data = await res.json() as RwsResponse;
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   fs.writeFileSync(dumpFile, JSON.stringify(data, null, 2));
   return data;
 }
 
-async function main() {
+async function main(): Promise<void> {
   const loc = process.argv[2] || "vlissingen";
   const data = await getRawData(loc);
 
@@ -61,8 +78,8 @@ async function main() {
   const metingen = data.WaarnemingenLijst?.[0]?.MetingenLijst;
   if (!metingen) { console.log("No MetingenLijst"); return; }
 
-  const points = metingen
-    .map((m) => ({ time: m.Tijdstip, value: m.Meetwaarde?.Waarde_Numeriek }))
+  const points: TidePoint[] = metingen
+    .map((m) => ({ time: m.Tijdstip as string, value: m.Meetwaarde?.Waarde_Numeriek as number }))
     .filter((p) => p.time != null && p.value != null)
     .map((p) => ({ ...p, value: p.value / 100 }));
 
@@ -89,7 +106,7 @@ async function main() {
 
   // Direction-change algorithm with plateau midpoint (same as server)
   console.log("Direction-change extremum search:");
-  let lastDirection = null;
+  let lastDirection: "up" | "down" | null = null;
   let extremeIndex = nowIdx;
   let extremeValue = points[nowIdx].value;
   let plateauStart = nowIdx;

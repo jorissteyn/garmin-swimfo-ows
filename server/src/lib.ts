@@ -1,6 +1,13 @@
-// Shared helpers for server/index.js and server/debug.js.
+// Shared helpers for server/src/index.ts and server/src/debug.ts.
 
-const LOCATIONS = {
+export interface Location {
+  name: string;
+  lat: number;
+  lon: number;
+  rwsCode: string;
+}
+
+export const LOCATIONS: Record<string, Location> = {
   vlissingen: {
     name: "Vlissingen",
     lat: 51.4425,
@@ -31,18 +38,25 @@ const AMS_DAY_FMT = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Amsterdam",
   year: "numeric", month: "2-digit", day: "2-digit",
 });
-function amsDayIndex(ms) {
+function amsDayIndex(ms: number): number {
   const [y, m, d] = AMS_DAY_FMT.format(new Date(ms)).split("-").map(Number);
   return Date.UTC(y, m - 1, d) / 86400000;
 }
 
-function getMoonInfo() {
+type PeakType = "springtij" | "doodtij";
+interface Peak { type: PeakType; ms: number; }
+
+export interface MoonInfo {
+  moonLabel: string;
+}
+
+export function getMoonInfo(): MoonInfo {
   const now = Date.now();
   // Enumerate peaks across a few cycles around now; 4 per cycle (SPR, DTJ, SPR, DTJ).
   const cycleStart = Math.floor((now - REF_NEW_MOON_MS) / SYNODIC_MS) - 1;
   const quarterMs = SYNODIC_MS / 4;
-  const peakTypes = ["springtij", "doodtij", "springtij", "doodtij"];
-  const peaks = [];
+  const peakTypes: PeakType[] = ["springtij", "doodtij", "springtij", "doodtij"];
+  const peaks: Peak[] = [];
   for (let n = cycleStart; n <= cycleStart + 2; n++) {
     const base = REF_NEW_MOON_MS + n * SYNODIC_MS + PHASE_PEAK_OFFSET_MS;
     for (let q = 0; q < 4; q++) {
@@ -61,14 +75,14 @@ function getMoonInfo() {
     }
   }
 
-  let label;
+  let label: string;
   if (Math.abs(nearestDiff) <= 2) {
     if (nearestDiff === 0)    label = nearest.type;
     else if (nearestDiff > 0) label = `${nearestDiff}d tot ${nearest.type}`;
     else                      label = `${-nearestDiff}d na ${nearest.type}`;
   } else {
     // Between peak windows — show the next upcoming peak of any type.
-    let nextType = peaks[0].type;
+    let nextType: PeakType = peaks[0].type;
     let nextDiff = Infinity;
     for (const p of peaks) {
       const diff = amsDayIndex(p.ms) - today;
@@ -80,11 +94,16 @@ function getMoonInfo() {
   return { moonLabel: label };
 }
 
+export interface LunarEvent {
+  type: "SPR" | "DTJ";
+  epoch: number;
+}
+
 // Lunar tide events (springtij / doodtij) within [startMs, endMs].
 // Each event is +2 days after the triggering lunar phase.
-function getLunarEvents(startMs, endMs) {
+export function getLunarEvents(startMs: number, endMs: number): LunarEvent[] {
   const quarterMs = SYNODIC_MS / 4;
-  const events = [];
+  const events: LunarEvent[] = [];
 
   // Sweep a few cycles around the range; each cycle has 2 springs + 2 neaps.
   const firstCycle = Math.floor((startMs - REF_NEW_MOON_MS) / SYNODIC_MS) - 1;
@@ -92,7 +111,7 @@ function getLunarEvents(startMs, endMs) {
 
   for (let n = firstCycle; n <= lastCycle; n++) {
     const cycleStart = REF_NEW_MOON_MS + n * SYNODIC_MS;
-    const candidates = [
+    const candidates: { type: "SPR" | "DTJ"; ts: number }[] = [
       { type: "SPR", ts: cycleStart + PHASE_PEAK_OFFSET_MS },
       { type: "DTJ", ts: cycleStart + quarterMs + PHASE_PEAK_OFFSET_MS },
       { type: "SPR", ts: cycleStart + 2 * quarterMs + PHASE_PEAK_OFFSET_MS },
@@ -106,9 +125,3 @@ function getLunarEvents(startMs, endMs) {
   }
   return events;
 }
-
-module.exports = {
-  LOCATIONS,
-  getMoonInfo,
-  getLunarEvents,
-};

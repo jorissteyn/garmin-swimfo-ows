@@ -1,10 +1,17 @@
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
+import http from "http";
+import fs from "fs";
+import path from "path";
+import dotenv from "dotenv";
 
-require("dotenv").config();
+import {
+  LOCATIONS,
+  Location,
+  LunarEvent,
+  getMoonInfo,
+  getLunarEvents,
+} from "./lib";
 
-const { LOCATIONS, getMoonInfo, getLunarEvents } = require("./lib");
+dotenv.config();
 
 const PORT = parseInt(process.env.PORT || "31415", 10);
 const RWS_BASE =
@@ -14,14 +21,14 @@ const OPENMETEO_BASE =
   process.env.OPENMETEO_BASE_URL || "https://api.open-meteo.com/v1";
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || "3600000", 10);
 
-const CACHE_DIR = path.join(__dirname, "cache");
-const LOG_FILE = path.join(__dirname, "logs", "server.log");
+const CACHE_DIR = path.join(__dirname, "..", "cache");
+const LOG_FILE = path.join(__dirname, "..", "logs", "server.log");
 
 // ── Logging ──────────────────────────────────────────────────
 
 fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
 
-function log(msg) {
+function log(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
   process.stdout.write(line);
   fs.appendFileSync(LOG_FILE, line);
@@ -31,11 +38,16 @@ function log(msg) {
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-function getCached(key) {
+interface CacheEntry<T> {
+  ts: number;
+  data: T;
+}
+
+function getCached<T>(key: string): T | null {
   const file = path.join(CACHE_DIR, `${key}.json`);
   try {
     const raw = fs.readFileSync(file, "utf8");
-    const entry = JSON.parse(raw);
+    const entry: CacheEntry<T> = JSON.parse(raw);
     const age = Math.floor((Date.now() - entry.ts) / 1000);
     if (Date.now() - entry.ts < CACHE_TTL) {
       log(`  cache READ  ${file} (age ${age}s) ${JSON.stringify(entry.data)}`);
@@ -43,22 +55,57 @@ function getCached(key) {
     }
     log(`  cache STALE ${file} (age ${age}s > TTL ${CACHE_TTL / 1000}s)`);
   } catch (err) {
-    log(`  cache MISS  ${file} (${err.code || err.message})`);
+    const e = err as NodeJS.ErrnoException;
+    log(`  cache MISS  ${file} (${e.code || e.message})`);
   }
   return null;
 }
 
-function setCache(key, data) {
+function setCache<T>(key: string, data: T): void {
   const file = path.join(CACHE_DIR, `${key}.json`);
   log(`  cache WRITE ${file} ${JSON.stringify(data)}`);
   fs.writeFileSync(file, JSON.stringify({ ts: Date.now(), data }));
 }
 
+// ── Types ────────────────────────────────────────────────────
+
+interface WeatherResult {
+  airTemp: number | null;
+  windSpeed: number | null;
+}
+
+interface TideExtremum {
+  type: "HW" | "LW" | "SPR" | "DTJ";
+  level?: number;
+  epoch: number;
+}
+
+interface TideResult {
+  waterLevel?: number;
+  tideTable?: TideExtremum[];
+}
+
+interface WaterTempResult {
+  waterTemp?: number;
+}
+
+interface TidePoint {
+  time: string;
+  value: number;
+}
+
+interface ParsedExtremum {
+  type: "HW" | "LW";
+  idx: number;
+  level: number;
+  epoch: number;
+}
+
 // ── Upstream fetchers ────────────────────────────────────────
 
-async function fetchWeather(loc) {
+async function fetchWeather(loc: Location): Promise<WeatherResult> {
   const key = `weather_${loc.rwsCode}`;
-  const cached = getCached(key);
+  const cached = getCached<WeatherResult>(key);
   if (cached) {
     log("  weather: cache hit");
     return cached;
@@ -67,9 +114,9 @@ async function fetchWeather(loc) {
   const url = `${OPENMETEO_BASE}/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,wind_speed_10m`;
   log(`  weather: GET ${url}`);
   const res = await fetch(url);
-  const body = await res.json();
+  const body = await res.json() as { current?: { temperature_2m?: number; wind_speed_10m?: number } };
 
-  const result = {
+  const result: WeatherResult = {
     airTemp: body.current?.temperature_2m ?? null,
     windSpeed: body.current?.wind_speed_10m ?? null,
   };
@@ -77,9 +124,9 @@ async function fetchWeather(loc) {
   return result;
 }
 
-async function fetchTide(loc) {
+async function fetchTide(loc: Location): Promise<TideResult> {
   const key = `tide_${loc.rwsCode}`;
-  const cached = getCached(key);
+  const cached = getCached<TideResult>(key);
   if (cached) {
     log("  tide: cache hit");
     return cached;
@@ -113,7 +160,7 @@ async function fetchTide(loc) {
     },
     body: JSON.stringify(payload),
   });
-  const body = await res.json();
+  const body = await res.json() as RwsResponse;
 
   // Dump raw response for debugging
   const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_raw.json`);
@@ -124,9 +171,9 @@ async function fetchTide(loc) {
   return result;
 }
 
-async function fetchWaterTemp(loc) {
+async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
   const key = `watertemp_${loc.rwsCode}`;
-  const cached = getCached(key);
+  const cached = getCached<WaterTempResult>(key);
   if (cached) {
     log("  waterTemp: cache hit");
     return cached;
@@ -154,7 +201,7 @@ async function fetchWaterTemp(loc) {
     },
     body: JSON.stringify(payload),
   });
-  const body = await res.json();
+  const body = await res.json() as RwsResponse;
 
   const result = parseWaterTemp(body);
   setCache(key, result);
@@ -163,18 +210,31 @@ async function fetchWaterTemp(loc) {
 
 // ── Parsers ──────────────────────────────────────────────────
 
-function parseTide(data) {
-  const result = {};
+interface RwsMeting {
+  Tijdstip?: string;
+  Meetwaarde?: { Waarde_Numeriek?: number };
+}
+
+interface RwsWaarneming {
+  MetingenLijst?: RwsMeting[];
+}
+
+interface RwsResponse {
+  WaarnemingenLijst?: RwsWaarneming[];
+}
+
+function parseTide(data: RwsResponse): TideResult {
+  const result: TideResult = {};
   const lijst = data?.WaarnemingenLijst;
   if (!Array.isArray(lijst) || lijst.length === 0) return result;
 
   const metingen = lijst[0]?.MetingenLijst;
   if (!Array.isArray(metingen) || metingen.length < 3) return result;
 
-  const points = metingen
+  const points: TidePoint[] = metingen
     .map((m) => ({
-      time: m.Tijdstip,
-      value: m.Meetwaarde?.Waarde_Numeriek,
+      time: m.Tijdstip as string,
+      value: m.Meetwaarde?.Waarde_Numeriek as number,
     }))
     .filter((p) => p.time != null && p.value != null)
     .map((p) => ({ ...p, value: p.value / 100 }));
@@ -219,7 +279,7 @@ function parseTide(data) {
   }
   // Only type/level/epoch — time and date are derived on the watch from epoch.
   // Keeps the parsed Dictionary small (every extra key costs ~40-80B in CIQ).
-  const tideRows = [...past, ...future].map((e) => ({
+  const tideRows: TideExtremum[] = [...past, ...future].map((e) => ({
     type: e.type,
     level: Math.round(e.level * 100) / 100,
     epoch: Math.floor(e.epoch),
@@ -229,7 +289,7 @@ function parseTide(data) {
   if (tideRows.length > 0) {
     const rangeStart = tideRows[0].epoch * 1000;
     const rangeEnd = tideRows[tideRows.length - 1].epoch * 1000;
-    const lunar = getLunarEvents(rangeStart, rangeEnd);
+    const lunar: LunarEvent[] = getLunarEvents(rangeStart, rangeEnd);
     tideRows.push(...lunar);
     tideRows.sort((a, b) => a.epoch - b.epoch);
   }
@@ -238,9 +298,9 @@ function parseTide(data) {
   return result;
 }
 
-function findExtrema(points) {
-  const extrema = [];
-  let dir = null;
+function findExtrema(points: TidePoint[]): ParsedExtremum[] {
+  const extrema: ParsedExtremum[] = [];
+  let dir: "up" | "down" | null = null;
   let extIdx = 0;
   let extVal = points[0].value;
   let platStart = 0;
@@ -281,7 +341,7 @@ function findExtrema(points) {
   return extrema;
 }
 
-function parseWaterTemp(data) {
+function parseWaterTemp(data: RwsResponse): WaterTempResult {
   const lijst = data?.WaarnemingenLijst;
   if (!Array.isArray(lijst) || lijst.length === 0) return {};
 
@@ -296,11 +356,11 @@ function parseWaterTemp(data) {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function fmtDate(d) {
+function fmtDate(d: Date): string {
   return d.toISOString().replace("Z", "+00:00");
 }
 
-function localTime(ts) {
+function localTime(ts: string): string {
   try {
     const d = new Date(ts);
     return d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -309,19 +369,10 @@ function localTime(ts) {
   }
 }
 
-function localDate(ts) {
-  try {
-    const d = new Date(ts);
-    return d.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "long" });
-  } catch {
-    return "???";
-  }
-}
-
 // ── HTTP server ──────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const url = new URL(req.url || "/", `http://localhost:${PORT}`);
   const match = url.pathname.match(/^\/conditions\/(\w+)$/);
 
   if (!match) {
@@ -362,9 +413,10 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(json);
   } catch (err) {
-    log(`  ERROR: ${err.message}`);
+    const e = err as Error;
+    log(`  ERROR: ${e.message}`);
     res.writeHead(502, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: err.message }));
+    res.end(JSON.stringify({ error: e.message }));
   }
 });
 

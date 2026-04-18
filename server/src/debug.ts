@@ -1,11 +1,37 @@
-const fs = require("fs");
-const path = require("path");
-const { LOCATIONS, getMoonInfo } = require("./lib");
+import fs from "fs";
+import path from "path";
+import { LOCATIONS, getMoonInfo } from "./lib";
 
-const CACHE_DIR = path.join(__dirname, "cache");
-const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || "3600000", 10);
+const CACHE_DIR = path.join(__dirname, "..", "cache");
 
-function fmtAge(ms) {
+interface TideExtremum {
+  type: "HW" | "LW" | "SPR" | "DTJ";
+  level?: number;
+  epoch: number;
+}
+
+interface TideData {
+  waterLevel?: number;
+  tideTable?: TideExtremum[];
+}
+
+interface WeatherData {
+  airTemp?: number;
+  windSpeed?: number;
+}
+
+interface WaterTempData {
+  waterTemp?: number;
+}
+
+interface CacheTyped<T> {
+  data: T;
+  ts: number;
+}
+
+type AnyCache = CacheTyped<TideData> | CacheTyped<WeatherData> | CacheTyped<WaterTempData>;
+
+function fmtAge(ms: number): string {
   const sec = Math.floor(ms / 1000);
   if (sec < 60) return `${sec}s ago`;
   const min = Math.floor(sec / 60);
@@ -13,34 +39,24 @@ function fmtAge(ms) {
   return `${Math.floor(min / 60)}h ${min % 60}m ago`;
 }
 
-function readCache(key) {
-  const file = path.join(CACHE_DIR, `${key}.json`);
-  try {
-    const entry = JSON.parse(fs.readFileSync(file, "utf8"));
-    return { data: entry.data, ts: entry.ts, stale: Date.now() - entry.ts > CACHE_TTL };
-  } catch {
-    return null;
-  }
-}
-
-function pad(n) {
+function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function fmtTime(ts) {
+function fmtTime(ts: number): string {
   const d = new Date(ts);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function fmtDate(ts) {
+function fmtDate(ts: number): string {
   const d = new Date(ts);
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function box(title, lines, width) {
+function box(title: string, lines: string[], width: number): string {
   const bar = "\u2500".repeat(width - 2);
-  const out = [];
+  const out: string[] = [];
   out.push(`\u250c\u2500 ${title} ${bar.slice(title.length + 3)}\u2510`);
   for (const line of lines) {
     const padding = width - 2 - stripAnsi(line).length;
@@ -50,17 +66,17 @@ function box(title, lines, width) {
   return out.join("\n");
 }
 
-function stripAnsi(s) {
+function stripAnsi(s: string): string {
   return s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
-function center(text, width) {
+function center(text: string, width: number): string {
   const len = stripAnsi(text).length;
   const pad = Math.max(0, Math.floor((width - len) / 2));
   return " ".repeat(pad) + text;
 }
 
-function dots(active, total, width) {
+function dots(active: number, total: number, width: number): string {
   let s = "";
   for (let i = 0; i < total; i++) {
     s += i === active ? "\u25cf" : "\u25cb";
@@ -69,7 +85,7 @@ function dots(active, total, width) {
   return center(s, width);
 }
 
-function toBeaufort(kmh) {
+function toBeaufort(kmh: number): string {
   const thresholds = [1, 6, 12, 20, 29, 39, 50, 62, 75, 89, 103, 118];
   for (let i = 0; i < thresholds.length; i++) {
     if (kmh < thresholds[i]) return String(i);
@@ -89,7 +105,7 @@ const IW = W - 4; // inner width
 
 // ── Gather data ──────────────────────────────────────────────
 
-let files;
+let files: string[];
 try {
   files = fs.readdirSync(CACHE_DIR).filter((f) => f.endsWith(".json") && !f.includes("_raw"));
 } catch {
@@ -102,7 +118,13 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const byLocation = {};
+interface LocCacheBucket {
+  weather?: CacheTyped<WeatherData>;
+  tide?: CacheTyped<TideData>;
+  watertemp?: CacheTyped<WaterTempData>;
+}
+
+const byLocation: Record<string, LocCacheBucket> = {};
 for (const file of files) {
   const raw = fs.readFileSync(path.join(CACHE_DIR, file), "utf8");
   const entry = JSON.parse(raw);
@@ -110,14 +132,14 @@ for (const file of files) {
   const [type, ...rest] = name.split("_");
   const loc = rest.join("_");
   if (!byLocation[loc]) byLocation[loc] = {};
-  byLocation[loc][type] = { data: entry.data, ts: entry.ts };
+  (byLocation[loc] as Record<string, AnyCache>)[type] = { data: entry.data, ts: entry.ts };
 }
 
 for (const [loc, types] of Object.entries(byLocation)) {
   const locName = LOCATIONS[loc]?.name || loc;
-  const weather = types.weather?.data || {};
-  const tide = types.tide?.data || {};
-  const watertemp = types.watertemp?.data || {};
+  const weather: WeatherData = types.weather?.data || {};
+  const tide: TideData = types.tide?.data || {};
+  const watertemp: WaterTempData = types.watertemp?.data || {};
   const latestTs = Math.max(
     types.weather?.ts || 0,
     types.tide?.ts || 0,
@@ -129,8 +151,8 @@ for (const [loc, types] of Object.entries(byLocation)) {
   // ── Water level (API + interpolated) ──
   // Pick prev/next extrema from tideTable at current time, mirroring the watch.
   const nowSec = Date.now() / 1000;
-  let prevX = null;
-  let nextX = null;
+  let prevX: TideExtremum | null = null;
+  let nextX: TideExtremum | null = null;
   if (Array.isArray(tide.tideTable)) {
     for (const e of tide.tideTable) {
       if (e.type !== "HW" && e.type !== "LW") continue;
@@ -138,7 +160,7 @@ for (const [loc, types] of Object.entries(byLocation)) {
       else if (!nextX) { nextX = e; break; }
     }
   }
-  const rising = prevX && nextX ? nextX.level > prevX.level : null;
+  const rising = prevX && nextX ? (nextX.level ?? 0) > (prevX.level ?? 0) : null;
   const dir = rising != null ? (rising ? "Opk" : "Afg") : "---";
   const apiLvl = tide.waterLevel != null ? `${tide.waterLevel.toFixed(2)}m` : "--";
   let interpLvl = "--";
@@ -148,7 +170,7 @@ for (const [loc, types] of Object.entries(byLocation)) {
       let t = (nowSec - prevX.epoch) / span;
       t = Math.max(0, Math.min(1, t));
       const cosInterp = (1 - Math.cos(t * Math.PI)) / 2;
-      const interp = prevX.level + (nextX.level - prevX.level) * cosInterp;
+      const interp = (prevX.level ?? 0) + ((nextX.level ?? 0) - (prevX.level ?? 0)) * cosInterp;
       interpLvl = `${interp.toFixed(2)}m`;
     }
   }
@@ -166,8 +188,8 @@ for (const [loc, types] of Object.entries(byLocation)) {
   ], W));
 
   // ── Tide debug ──
-  const fmtExtremum = (x) =>
-    `${x.type} ${x.level.toFixed(2)}m @ ${new Date(x.epoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
+  const fmtExtremum = (x: TideExtremum): string =>
+    `${x.type} ${(x.level ?? 0).toFixed(2)}m @ ${new Date(x.epoch * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
   const prevInfo = prevX ? fmtExtremum(prevX) : `${DIM}none${RESET}`;
   const nextInfo = nextX ? fmtExtremum(nextX) : `${DIM}none${RESET}`;
 
@@ -179,14 +201,14 @@ for (const [loc, types] of Object.entries(byLocation)) {
   ];
   if (Array.isArray(tide.tideTable) && tide.tideTable.length > 0) {
     tideDataLines.push("");
-    const dateKey = (epoch) =>
+    const dateKey = (epoch: number): string =>
       new Date(epoch * 1000).toLocaleDateString("nl-NL", {
         weekday: "short", day: "numeric", month: "short",
         timeZone: "Europe/Amsterdam",
       });
 
     // Pass 1: index lunar labels by date.
-    const lunarByDate = {};
+    const lunarByDate: Record<string, string> = {};
     for (const e of tide.tideTable) {
       if (e.type !== "SPR" && e.type !== "DTJ") continue;
       lunarByDate[dateKey(e.epoch)] = e.type === "SPR" ? "springtij" : "doodtij";
@@ -232,7 +254,7 @@ for (const [loc, types] of Object.entries(byLocation)) {
       })
     : "";
   const nextLine = nextX
-    ? `${nextX.type} ${nextX.level.toFixed(2)}m  ${nextTimeStr}`
+    ? `${nextX.type} ${(nextX.level ?? 0).toFixed(2)}m  ${nextTimeStr}`
     : `${DIM}geen getijdata${RESET}`;
 
   const tidePage = [

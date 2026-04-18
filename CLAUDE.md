@@ -28,10 +28,14 @@ source/
   SwimfoService.mc          Background service: single GET to proxy server.
   Locations.mc              Hardcoded location data (RWS station codes + coords).
 server/
-  index.js                  Node.js proxy server — aggregates Open-Meteo + RWS APIs.
-  debug.js                  Prints cached data formatted like watch pages.
+  src/index.ts              Node.js proxy server — aggregates Open-Meteo + RWS APIs.
+  src/lib.ts                Shared helpers (LOCATIONS, moon phase, lunar events).
+  src/debug.ts              Prints cached data formatted like watch pages.
+  src/debug-tide.ts         Standalone raw-RWS dump inspector.
+  src/check-response.ts     Curl helper for the /conditions endpoint.
+  tsconfig.json             TypeScript build config (compiles src/ → dist/).
   .env.example              Default server configuration.
-  package.json              Server dependencies (dotenv only).
+  package.json              Server dependencies + scripts.
 resources/
   settings/                 Location picker (properties + settings XML).
   strings/                  String resources.
@@ -71,7 +75,7 @@ Results stored in `Application.Storage` as a flat Dictionary. Widget views read 
 
 ## API endpoints
 
-All API calls are made by the proxy server (`server/index.js`), not the watch:
+All API calls are made by the proxy server (`server/src/index.ts`), not the watch:
 
 - Open-Meteo: `https://api.open-meteo.com/v1/forecast` (free, no key)
 - RWS: `https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES` (free, no key)
@@ -82,7 +86,7 @@ Configured via `server/.env` (copy from `.env.example`).
 
 Defined in two places (keep in sync):
 - `source/Locations.mc` — watch-side (name, lat/lon, rwsCode)
-- `server/index.js` — server-side LOCATIONS map (name, lat, lon, rwsCode)
+- `server/src/lib.ts` — server-side LOCATIONS map (name, lat, lon, rwsCode)
 
 Current locations:
 - Vlissingen: rwsCode `vlissingen`
@@ -92,15 +96,17 @@ To add a location: add to both Locations.mc and server LOCATIONS, add list entry
 
 ## Server
 
-The Node.js proxy server runs on port 31415 (configurable via `.env`). It:
+The proxy server is written in TypeScript (sources in `server/src/`, compiled to `server/dist/` by `tsc`). It runs on port 31415 (configurable via `.env`) and:
 - Aggregates 3 upstream APIs into a single small JSON response
 - Caches responses on disk for 1 hour (configurable via `CACHE_TTL_MS`)
 - Logs all requests to `server/logs/server.log`
 
 ```bash
-make server-run     # foreground
-make server-start   # background
+make server-run     # build + foreground
+make server-start   # build + background
 make server-stop    # stop background server
 make server-debug   # refresh + print cached data (LOCATION=vlissingen)
-make server-clean   # remove node_modules, cache, logs
+make server-clean   # remove node_modules, dist, cache, logs
 ```
+
+The Makefile `server-build` target runs `npm install && npm run build` (= `tsc`). All server targets depend on `server-build`, so a fresh `make server-run` recompiles before launching.

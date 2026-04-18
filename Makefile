@@ -106,17 +106,17 @@ keygen: ## Generate developer key (one-time setup)
 		echo "Created $(KEY)"; \
 	fi
 
-# ── Server (Node.js API proxy) ────────────────────────────────
+# ── Server (Node.js/TypeScript API proxy) ─────────────────────
 
-server-build: ## Install server dependencies
-	cd server && npm install
+server-build: ## Install server deps and compile TypeScript
+	cd server && npm install && npm run build
 
 server-start: server-build ## Start API proxy server in background
 	@if [ -f server/.pid ] && kill -0 $$(cat server/.pid) 2>/dev/null; then \
 		echo "Server already running (PID $$(cat server/.pid))"; \
 	else \
 		cd server && [ -f .env ] || cp .env.example .env; \
-		cd server && node index.js & echo $$! > server/.pid; \
+		cd server && node dist/index.js & echo $$! > server/.pid; \
 		echo "Server started (PID $$(cat server/.pid))"; \
 	fi
 
@@ -132,17 +132,17 @@ server-stop: ## Stop the API proxy server
 
 server-run: server-build ## Run API proxy server in foreground
 	@cd server && [ -f .env ] || cp .env.example .env
-	cd server && node index.js
+	cd server && node dist/index.js
 
 PORT      ?= 31415
 LOCATION  ?= vlissingen
 
-server-debug: ## Fetch fresh data and print cache (LOCATION=vlissingen)
+server-debug: server-build ## Fetch fresh data and print cache (LOCATION=vlissingen)
 	@curl -s http://localhost:$(PORT)/conditions/$(LOCATION) > /dev/null && echo "Refreshed $(LOCATION)" || echo "Server not reachable, showing stale cache"
-	@node server/debug.js
+	@node server/dist/debug.js
 
 server-clean: server-stop ## Remove server build artifacts, cache, and logs
-	rm -rf server/node_modules server/cache server/logs server/.pid
+	rm -rf server/node_modules server/dist server/cache server/logs server/.pid
 
 # ── Helpers ───────────────────────────────────────────────────
 

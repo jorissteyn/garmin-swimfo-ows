@@ -1,0 +1,9 @@
+**/node_modules
+server/dist
+server/cache
+server/logs
+server/.env
+server/.pid
+bin/
+.sdk/
+.git

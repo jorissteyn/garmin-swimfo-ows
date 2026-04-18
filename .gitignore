@@ -10,6 +10,7 @@ developer_key.der
 *.swo
 *~
 server/node_modules/
+server/dist/
 server/cache/
 server/logs/
 server/.env

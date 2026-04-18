@@ -3,11 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "description": "Proxy server for Swimfo watch app — aggregates weather and tide APIs",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node index.js"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "debug": "node dist/debug.js",
+    "debug-tide": "node dist/debug-tide.js",
+    "check-response": "node dist/check-response.js",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
   }
 }
