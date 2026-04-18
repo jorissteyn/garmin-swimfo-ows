@@ -26,41 +26,47 @@ Review typically takes a few days. Rejected builds come back with feedback; fix,
 
 ## Store listing (Dutch)
 
+### Titel
+
+Zeeland OWS
+
 ### Korte omschrijving
 
 Open water zwemmen in Zeeland: Getij, watertemperatuur en wind direct op je Garmin horloge.
 
 ### Volledige beschrijving
 
-**Voor de Zeeuwse open water zwemmer**
+Plain text only — geen markdown. Kopjes worden in HOOFDLETTERS weergegeven.
+
+VOOR DE ZEEUWSE OPEN WATER ZWEMMER
 
 Alles wat je nodig hebt voor een duik in de Westerschelde of Oosterschelde, recht op je pols. Geen abonnement, geen reclame, geen account — gewoon aanzetten en zwemmen.
 
-**Getij op elk moment**
+GETIJ OP ELK MOMENT
 Zie in één oogopslag of het water opkomt of afgaat, hoe hoog het nu staat, en wanneer het volgende hoogwater of laagwater komt. De app schat het actuele waterpeil continu bij op basis van de getijvoorspelling, zodat het cijfer tussen metingen door vloeiend meebeweegt met het echte tij — ook als je horloge even geen verbinding heeft. Groen pijltje omhoog betekent opkomend water, rood pijltje omlaag betekent afgaand.
 
-**Getijdentabel — 7 dagen vooruit**
+GETIJDENTABEL — 7 DAGEN VOORUIT
 Tik op de getijpagina voor een volledig weekoverzicht van hoog- en laagwater.
 
-**Springtij en doodtij**
+SPRINGTIJ EN DOODTIJ
 Springtij (rond nieuwe en volle maan, grootste waterbeweging) en doodtij (rond eerste en laatste kwartier, rustigste tij) worden bij de datum in de tabel getoond en op de hoofdpagina samengevat. Ideaal voor het kiezen van het juiste moment.
 
-**Watertemperatuur**
+WATERTEMPERATUUR
 Actuele watertemperatuur van het gekozen meetpunt.
 
-**Weer op zwemhoogte**
+WEER OP ZWEMHOOGTE
 Luchttemperatuur en windsnelheid, inclusief windkracht op de schaal van Beaufort.
 
-**Glance in je widget-carrousel**
+GLANCE IN JE WIDGET-CARROUSEL
 De belangrijkste info — tijrichting, waterhoogte, watertemperatuur, lucht en wind — samengevat op twee regels, zichtbaar zonder de app te openen. Als je de glance in je carrousel zet, werkt de data elke 30 minuten automatisch bij op de achtergrond.
 
-**Kies je locatie**
+KIES JE LOCATIE
 - Vlissingen (Westerschelde)
 - Yerseke (Oosterschelde)
 
 Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je Yerseke.
 
-**Gegevensbronnen**
+GEGEVENSBRONNEN
 - Getij en watertemperatuur: Rijkswaterstaat (waterinfo.rws.nl)
 - Luchttemperatuur en wind: Open-Meteo
 
