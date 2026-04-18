@@ -4,6 +4,8 @@ const path = require("path");
 
 require("dotenv").config();
 
+const { LOCATIONS, getMoonInfo, getLunarEvents } = require("./lib");
+
 const PORT = parseInt(process.env.PORT || "31415", 10);
 const RWS_BASE =
   process.env.RWS_BASE_URL ||
@@ -14,23 +16,6 @@ const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || "3600000", 10);
 
 const CACHE_DIR = path.join(__dirname, "cache");
 const LOG_FILE = path.join(__dirname, "logs", "server.log");
-
-// ── Locations ────────────────────────────────────────────────
-
-const LOCATIONS = {
-  vlissingen: {
-    name: "Vlissingen",
-    lat: 51.4425,
-    lon: 3.5964,
-    rwsCode: "vlissingen",
-  },
-  yerseke: {
-    name: "Yerseke",
-    lat: 51.4933,
-    lon: 3.96,
-    rwsCode: "yerseke",
-  },
-};
 
 // ── Logging ──────────────────────────────────────────────────
 
@@ -331,73 +316,6 @@ function localDate(ts) {
   } catch {
     return "???";
   }
-}
-
-// ── Moon phase ──────────────────────────────────────────────
-
-// Reference new moon: Jan 6, 2000 18:14 UTC
-const REF_NEW_MOON_MS = new Date("2000-01-06T18:14:00Z").getTime();
-const SYNODIC_DAYS = 29.530588853;
-const SYNODIC_MS = SYNODIC_DAYS * 24 * 3600 * 1000;
-// Springtij/doodtij peak ~2 days after the triggering lunar phase (RWS).
-const PHASE_PEAK_OFFSET_MS = 2 * 24 * 3600 * 1000;
-// Days since the triggering phase still count as spring/neap (0=phase, peak=+2, fading by +4).
-const PHASE_WINDOW_DAYS = 4;
-
-function getMoonInfo() {
-  const now = Date.now();
-  const daysSinceRef = (now - REF_NEW_MOON_MS) / (24 * 3600 * 1000);
-  const moonAge = ((daysSinceRef % SYNODIC_DAYS) + SYNODIC_DAYS) % SYNODIC_DAYS;
-
-  // Phase offsets within the synodic cycle
-  const firstQuarter = SYNODIC_DAYS / 4;
-  const fullMoonAge = SYNODIC_DAYS / 2;
-  const lastQuarter = SYNODIC_DAYS * 3 / 4;
-
-  // Days since each phase (always positive, so "2 days after" maps to 2, not -2).
-  const sincePhase = (age) => ((moonAge - age + SYNODIC_DAYS) % SYNODIC_DAYS);
-  const sinceSpring = Math.min(sincePhase(0), sincePhase(fullMoonAge));
-  const sinceNeap = Math.min(sincePhase(firstQuarter), sincePhase(lastQuarter));
-
-  let label;
-  if (sinceSpring <= PHASE_WINDOW_DAYS) {
-    label = "springtij";
-  } else if (sinceNeap <= PHASE_WINDOW_DAYS) {
-    label = "doodtij";
-  } else {
-    // Count down to the next peak (+2d after new/full moon), not to the phase itself.
-    const daysToNext = (SYNODIC_DAYS / 2) - sinceSpring + 2;
-    label = `${Math.round(daysToNext)}d tot springtij`;
-  }
-
-  return { moonLabel: label };
-}
-
-// Lunar tide events (springtij / doodtij) within [startMs, endMs].
-// Each event is +2 days after the triggering lunar phase.
-function getLunarEvents(startMs, endMs) {
-  const quarterMs = SYNODIC_MS / 4;
-  const events = [];
-
-  // Sweep a few cycles around the range; each cycle has 2 springs + 2 neaps.
-  const firstCycle = Math.floor((startMs - REF_NEW_MOON_MS) / SYNODIC_MS) - 1;
-  const lastCycle = Math.ceil((endMs - REF_NEW_MOON_MS) / SYNODIC_MS) + 1;
-
-  for (let n = firstCycle; n <= lastCycle; n++) {
-    const cycleStart = REF_NEW_MOON_MS + n * SYNODIC_MS;
-    const candidates = [
-      { type: "SPR", ts: cycleStart + PHASE_PEAK_OFFSET_MS },
-      { type: "DTJ", ts: cycleStart + quarterMs + PHASE_PEAK_OFFSET_MS },
-      { type: "SPR", ts: cycleStart + 2 * quarterMs + PHASE_PEAK_OFFSET_MS },
-      { type: "DTJ", ts: cycleStart + 3 * quarterMs + PHASE_PEAK_OFFSET_MS },
-    ];
-    for (const c of candidates) {
-      if (c.ts >= startMs && c.ts <= endMs) {
-        events.push({ type: c.type, epoch: Math.floor(c.ts / 1000) });
-      }
-    }
-  }
-  return events;
 }
 
 // ── HTTP server ──────────────────────────────────────────────

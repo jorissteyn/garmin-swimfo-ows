@@ -1,13 +1,9 @@
 const fs = require("fs");
 const path = require("path");
+const { LOCATIONS, getMoonInfo } = require("./lib");
 
 const CACHE_DIR = path.join(__dirname, "cache");
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || "3600000", 10);
-
-const LOCATIONS = {
-  vlissingen: { name: "Vlissingen" },
-  yerseke: { name: "Yerseke" },
-};
 
 function fmtAge(ms) {
   const sec = Math.floor(ms / 1000);
@@ -79,25 +75,6 @@ function toBeaufort(kmh) {
     if (kmh < thresholds[i]) return String(i);
   }
   return "12";
-}
-
-// Kept in sync with server/index.js getMoonInfo.
-const REF_NEW_MOON_MS = new Date("2000-01-06T18:14:00Z").getTime();
-const SYNODIC_DAYS = 29.530588853;
-const PHASE_WINDOW_DAYS = 4;
-
-function getMoonInfo() {
-  const daysSinceRef = (Date.now() - REF_NEW_MOON_MS) / (24 * 3600 * 1000);
-  const moonAge = ((daysSinceRef % SYNODIC_DAYS) + SYNODIC_DAYS) % SYNODIC_DAYS;
-  const firstQuarter = SYNODIC_DAYS / 4;
-  const fullMoonAge = SYNODIC_DAYS / 2;
-  const lastQuarter = SYNODIC_DAYS * 3 / 4;
-  const sincePhase = (a) => ((moonAge - a + SYNODIC_DAYS) % SYNODIC_DAYS);
-  const sinceSpring = Math.min(sincePhase(0), sincePhase(fullMoonAge));
-  const sinceNeap = Math.min(sincePhase(firstQuarter), sincePhase(lastQuarter));
-  if (sinceSpring <= PHASE_WINDOW_DAYS) return { moonLabel: "springtij" };
-  if (sinceNeap <= PHASE_WINDOW_DAYS) return { moonLabel: "doodtij" };
-  return { moonLabel: `${Math.round(SYNODIC_DAYS / 2 - sinceSpring)}d tot springtij` };
 }
 
 const DIM = "\x1b[2m";
