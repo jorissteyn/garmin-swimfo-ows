@@ -26,6 +26,16 @@ class SwimfoService extends System.ServiceDelegate {
     }
 
     function onTemporalEvent() as Void {
+        // Pre-register the next sync BEFORE the fetch. Connect IQ kills the
+        // background service after a 30s wall clock; if makeWebRequest hangs
+        // past that (e.g. BT reconnecting), Background.exit never runs,
+        // onBackgroundData never fires, and the re-registration in
+        // SwimfoApp.onBackgroundData is skipped — silently breaking the 30-min
+        // loop until the user opens the app. Booking the next slot here
+        // guarantees the loop survives a killed fetch. On success,
+        // SwimfoApp.onBackgroundData overwrites this with a fresh +1800s.
+        Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1800)));
+
         var loc = Locations.getSelected();
         var url = serverBase() + "/conditions/" + loc["rwsCode"];
         System.println("fetch=" + url);
