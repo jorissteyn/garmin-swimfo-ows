@@ -23,11 +23,32 @@ class SwimfoApp extends Application.AppBase {
 
     function onBackgroundData(data as Application.PersistableType) as Void {
         System.println("onBackgroundData received");
-        if (data instanceof Lang.Dictionary) {
-            Storage.setValue("swimfoData", data as Lang.Dictionary);
-            System.println("Data stored OK");
-        } else {
+        if (!(data instanceof Lang.Dictionary)) {
             System.println("Background returned non-dict: " + data);
+            WatchUi.requestUpdate();
+            Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1800)));
+            return;
+        }
+        var d = data as Lang.Dictionary;
+        // On failure the service returns {locName, lastError}. Merge the error
+        // into existing Storage so the watch keeps rendering the last
+        // successful sync — only the error banner and unchanged lastUpdate
+        // reflect the failure. A successful sync does a full replace, which
+        // naturally clears any stale lastError.
+        if (d["lastError"] != null) {
+            var existing = Storage.getValue("swimfoData");
+            if (existing instanceof Lang.Dictionary) {
+                var merged = existing as Lang.Dictionary;
+                merged["lastError"] = d["lastError"];
+                Storage.setValue("swimfoData", merged);
+                System.println("Error merged, prior data preserved");
+            } else {
+                Storage.setValue("swimfoData", d);
+                System.println("Error stored (no prior data)");
+            }
+        } else {
+            Storage.setValue("swimfoData", d);
+            System.println("Data stored OK");
         }
         WatchUi.requestUpdate();
         Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1800)));
