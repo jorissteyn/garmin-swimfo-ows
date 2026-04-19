@@ -173,7 +173,8 @@ make server-build
 make help           # show all targets
 make build          # compile debug build (default device: fenix7)
 make run            # build + launch in simulator
-make release        # build .iq package for all devices
+make release-beta   # build .iq for the beta channel (beta app id)
+make release-prod   # build .iq for the production store (prod app id)
 make clean          # remove build artifacts
 
 # Server
@@ -187,23 +188,25 @@ make server-clean   # remove server artifacts
 make DEVICE=venu2 build
 ```
 
-### Sideloading alongside the store build
+### App id lifecycle
 
-`manifest.xml` carries the production UUID (`871b853b-…`) published to the Connect IQ store. Garmin identifies apps by that UUID, so a sideloaded debug build with the same UUID collides with the store-installed copy — the watch refuses the second install, or the store auto-update reverts your dev changes.
+Garmin identifies each Connect IQ app by a UUID in `manifest.xml`. We maintain two channels, each with its own UUID and its own store listing:
 
-When developing against a watch that already has the store build, temporarily swap the UUID to the previous dev value so both can coexist:
+| Channel | UUID                                   | Output file                |
+|---------|----------------------------------------|----------------------------|
+| Beta    | `4296c8ec-ce06-4e75-becf-e30dda703700` | `bin/ZeelandOWS-beta.iq`   |
+| Prod    | `871b853b-bf14-48a4-95ad-6dcc2c6ae471` | `bin/ZeelandOWS-prod.iq`   |
 
-```bash
-# before sideloading a dev build
-sed -i 's/871b853b-bf14-48a4-95ad-6dcc2c6ae471/4296c8ec-ce06-4e75-becf-e30dda703700/' manifest.xml
+The committed `manifest.xml` has the placeholder string `set by make release command` as the id — it won't build as-is. Every `make` target (`build`, `build-dev`, `run`, `test`, `release-beta`, `release-prod`) does the full dance:
 
-# do your thing: make build, push .prg to the watch, test
+1. `sed` in the appropriate UUID before invoking `monkeyc`
+2. Register a shell `trap` on `EXIT INT TERM`
+3. Run the build
+4. Trap fires on exit and `sed`s the UUID back to the placeholder — even on build failure or Ctrl-C
 
-# restore before committing or before `make release`
-sed -i 's/4296c8ec-ce06-4e75-becf-e30dda703700/871b853b-bf14-48a4-95ad-6dcc2c6ae471/' manifest.xml
-```
+So the working tree always returns to the placeholder after any build, and you can't accidentally commit a real UUID. Non-release targets use the beta UUID by default, so a sideloaded dev build coexists with a store-installed prod build without collision.
 
-Never commit the dev UUID and never upload a `.iq` built with it to the store — the store ties ratings, installs, and update delivery to the production UUID.
+If a build is killed by `SIGKILL` the trap can't run; `git checkout manifest.xml` restores the placeholder.
 
 ### SDK reference
 

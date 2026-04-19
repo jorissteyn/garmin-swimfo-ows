@@ -2,11 +2,14 @@
 
 ## Build the .iq package
 
+Two channels, each with its own store listing and app UUID (see README → App id lifecycle):
+
 ```bash
-make release
+make release-prod   # bin/ZeelandOWS-prod.iq  → public store listing (871b853b-…)
+make release-beta   # bin/ZeelandOWS-beta.iq  → beta store listing   (4296c8ec-…)
 ```
 
-Produces `bin/ZeelandOWS.iq` — the single bundle uploaded to the store. It contains compiled code for every device listed in `manifest.xml` (fenix 5+ and newer, epix 2 series, Forerunner 165/265/955/965, Venu 2/3 series, vivoactive 4/5, etc.).
+Each `.iq` bundles compiled code for every device listed in `manifest.xml` (fenix 5+ and newer, epix 2 series, Forerunner 165/265/955/965, Venu 2/3 series, vivoactive 4/5, etc.). The targets swap the correct UUID into `manifest.xml` before `monkeyc` runs and revert it afterwards via a shell trap, so the working tree is always clean.
 
 Prerequisites:
 - `developer_key.der` in the project root. If you don't have one, run `make keygen` first.
@@ -17,8 +20,8 @@ The release build uses the production server URL (`ows.j0r1s.nl`); it does **not
 ## Upload to the store
 
 1. Sign in at [apps.garmin.com/en-US/developer](https://apps.garmin.com/en-US/developer).
-2. Open the existing app entry (or create a new one).
-3. Under "App package" → "Upload new version", pick `bin/ZeelandOWS.iq`.
+2. Open the app entry for the matching channel — the beta and prod listings are separate Connect IQ Store entries with different UUIDs.
+3. Under "App package" → "Upload new version", pick `bin/ZeelandOWS-prod.iq` (prod listing) or `bin/ZeelandOWS-beta.iq` (beta listing). Uploading the wrong file fails with a UUID mismatch.
 4. Bump the version in `manifest.xml` (`<iq:application version="...">`) before each new upload — the store rejects duplicate versions.
 5. Paste the store listing below, upload screenshots, submit for review.
 

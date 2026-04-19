@@ -27,15 +27,25 @@ export _JAVA_OPTIONS := -Djava.io.tmpdir=$(TMP_DIR) -Djava.awt.headless=true
 
 PRG           = $(OUT_DIR)/$(APP_NAME).prg
 PRG_DEV       = $(OUT_DIR)/$(APP_NAME)-dev.prg
-IQ            = $(OUT_DIR)/$(APP_NAME).iq
+IQ_BETA       = $(OUT_DIR)/$(APP_NAME)-beta.iq
+IQ_PROD       = $(OUT_DIR)/$(APP_NAME)-prod.iq
 TEST_PRG      = $(OUT_DIR)/$(APP_NAME)-test.prg
+
+# App id lifecycle: the committed manifest.xml carries $(APP_ID_MARKER) as a
+# placeholder. Every build target swaps in a real UUID before monkeyc runs
+# and reverts it via a shell trap — so the manifest always returns to the
+# placeholder, even on build failure or Ctrl-C. Never commit a manifest with
+# a real id.
+APP_ID_BETA    = 4296c8ec-ce06-4e75-becf-e30dda703700
+APP_ID_PROD    = 871b853b-bf14-48a4-95ad-6dcc2c6ae471
+APP_ID_MARKER  = set by make release command
 
 SOURCES       = $(shell find source -name '*.mc')
 RESOURCES     = $(shell find resources -type f)
 
 # ── Targets ───────────────────────────────────────────────────
 
-.PHONY: help build build-dev release test run sim-start sim-stop clean keygen \
+.PHONY: help build build-dev release-beta release-prod test run sim-start sim-stop clean keygen \
        server-build server-start server-stop server-run server-debug server-clean
 
 help: ## Show this help
@@ -49,27 +59,41 @@ help: ## Show this help
 	@echo ""
 	@echo "Devices: fenix7 fenix7s fenix7x venu2 venu2s fr955 fr965 epix2"
 
-build: $(PRG) ## Compile watch-ready PRG (prod server URL)
+build: $(PRG) ## Compile watch-ready PRG (prod server URL, BETA app id)
 
 $(PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) $(KEY) | $(OUT_DIR)
 	@mkdir -p $(TMP_DIR)
+	@sed -i 's|$(APP_ID_MARKER)|$(APP_ID_BETA)|' manifest.xml; \
+	trap 'sed -i "s|$(APP_ID_BETA)|$(APP_ID_MARKER)|" manifest.xml' EXIT INT TERM; \
 	$(MC) -o $@ -f $(JUNGLE) -y $(KEY) -d $(DEVICE) -w
 
-build-dev: $(PRG_DEV) ## Compile simulator PRG (localhost server URL)
+build-dev: $(PRG_DEV) ## Compile simulator PRG (localhost server URL, BETA app id)
 
 $(PRG_DEV): $(SOURCES) $(RESOURCES) $(JUNGLE) dev.jungle $(KEY) | $(OUT_DIR)
 	@mkdir -p $(TMP_DIR)
+	@sed -i 's|$(APP_ID_MARKER)|$(APP_ID_BETA)|' manifest.xml; \
+	trap 'sed -i "s|$(APP_ID_BETA)|$(APP_ID_MARKER)|" manifest.xml' EXIT INT TERM; \
 	$(MC) -o $@ -f $(JUNGLE):dev.jungle -y $(KEY) -d $(DEVICE) -w
 
-release: $(KEY) | $(OUT_DIR) ## Build .iq store package (prod server URL)
+release-beta: $(KEY) | $(OUT_DIR) ## Build .iq for beta channel (BETA app id)
 	@mkdir -p $(TMP_DIR)
-	$(MC) -o $(IQ) -f $(JUNGLE) -y $(KEY) -e -r -w
+	@sed -i 's|$(APP_ID_MARKER)|$(APP_ID_BETA)|' manifest.xml; \
+	trap 'sed -i "s|$(APP_ID_BETA)|$(APP_ID_MARKER)|" manifest.xml' EXIT INT TERM; \
+	$(MC) -o $(IQ_BETA) -f $(JUNGLE) -y $(KEY) -e -r -w
+
+release-prod: $(KEY) | $(OUT_DIR) ## Build .iq for Connect IQ Store (PROD app id)
+	@mkdir -p $(TMP_DIR)
+	@sed -i 's|$(APP_ID_MARKER)|$(APP_ID_PROD)|' manifest.xml; \
+	trap 'sed -i "s|$(APP_ID_PROD)|$(APP_ID_MARKER)|" manifest.xml' EXIT INT TERM; \
+	$(MC) -o $(IQ_PROD) -f $(JUNGLE) -y $(KEY) -e -r -w
 
 test: $(TEST_PRG) | sim-start ## Compile and run unit tests in simulator
 	$(DO) $< $(DEVICE) -t
 
 $(TEST_PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) dev.jungle $(KEY) | $(OUT_DIR)
 	@mkdir -p $(TMP_DIR)
+	@sed -i 's|$(APP_ID_MARKER)|$(APP_ID_BETA)|' manifest.xml; \
+	trap 'sed -i "s|$(APP_ID_BETA)|$(APP_ID_MARKER)|" manifest.xml' EXIT INT TERM; \
 	$(MC) -o $@ -f $(JUNGLE):dev.jungle -y $(KEY) -d $(DEVICE) -t -w
 
 run: $(PRG_DEV) | sim-start ## Build dev PRG and run in simulator
