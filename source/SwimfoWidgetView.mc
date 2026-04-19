@@ -57,14 +57,18 @@ class SwimfoWidgetView extends WatchUi.View {
         dc.drawText(w / 2, h / 8, Graphics.FONT_XTINY, locName,
             Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Error code banner directly under location name (visible on all pages)
-        var errVal = data["lastError"];
-        if (errVal != null && errVal instanceof Lang.Number) {
-            dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, h / 8 + dc.getFontHeight(Graphics.FONT_XTINY),
-                Graphics.FONT_XTINY,
-                "Fout: " + (errVal as Lang.Number).toString(),
-                Graphics.TEXT_JUSTIFY_CENTER);
+        // Error code banner under location name — sync page only so other
+        // pages aren't cluttered by a failure on an otherwise-still-valid
+        // cached dataset.
+        if (_page == 3) {
+            var errVal = data["lastError"];
+            if (errVal != null && errVal instanceof Lang.Number) {
+                dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(w / 2, h / 8 + dc.getFontHeight(Graphics.FONT_XTINY),
+                    Graphics.FONT_XTINY,
+                    "Fout: " + (errVal as Lang.Number).toString(),
+                    Graphics.TEXT_JUSTIFY_CENTER);
+            }
         }
 
         if (_page == 0) {
