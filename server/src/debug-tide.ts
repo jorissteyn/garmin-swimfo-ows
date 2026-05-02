@@ -36,15 +36,19 @@ function localTime(ts: string): string {
   }
 }
 
-async function getRawData(loc: string): Promise<RwsResponse> {
-  const dumpFile = path.join(CACHE_DIR, `tide_${loc}_raw.json`);
+type ProcesType = "astronomisch" | "verwachting";
+
+async function getRawData(loc: string, procesType: ProcesType): Promise<RwsResponse> {
+  // astronomisch keeps the legacy filename so it shares the dump the server writes.
+  const suffix = procesType === "astronomisch" ? "" : `_${procesType}`;
+  const dumpFile = path.join(CACHE_DIR, `tide_${loc}${suffix}_raw.json`);
   try {
     const raw = fs.readFileSync(dumpFile, "utf8");
     console.log(`Reading cached raw data from ${dumpFile}\n`);
     return JSON.parse(raw);
   } catch {}
 
-  console.log("No cached raw data, fetching from RWS...\n");
+  console.log(`No cached raw data, fetching from RWS (ProcesType=${procesType})...\n`);
   const now = new Date();
   const start = new Date(now.getTime() - 1 * 3600 * 1000);
   const end = new Date(now.getTime() + 12 * 3600 * 1000);
@@ -55,7 +59,7 @@ async function getRawData(loc: string): Promise<RwsResponse> {
     body: JSON.stringify({
       Locatie: { Code: loc },
       AquoPlusWaarnemingMetadata: {
-        AquoMetadata: { Grootheid: { Code: "WATHTE" }, ProcesType: "astronomisch" },
+        AquoMetadata: { Grootheid: { Code: "WATHTE" }, ProcesType: procesType },
       },
       Periode: { Begindatumtijd: fmtDate(start), Einddatumtijd: fmtDate(end) },
     }),
@@ -68,7 +72,13 @@ async function getRawData(loc: string): Promise<RwsResponse> {
 
 async function main(): Promise<void> {
   const loc = process.argv[2] || "vlissingen";
-  const data = await getRawData(loc);
+  const procesTypeArg = process.argv[3] || "astronomisch";
+  if (procesTypeArg !== "astronomisch" && procesTypeArg !== "verwachting") {
+    console.error(`Invalid ProcesType: ${procesTypeArg} (must be astronomisch or verwachting)`);
+    process.exit(1);
+  }
+  const procesType: ProcesType = procesTypeArg;
+  const data = await getRawData(loc, procesType);
 
   if (!data.Succesvol) {
     console.log("API error:", JSON.stringify(data, null, 2).slice(0, 500));

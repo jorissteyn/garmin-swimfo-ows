@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 import { LOCATIONS, getMoonInfo } from "./lib";
 
 const CACHE_DIR = path.join(__dirname, "..", "cache");
@@ -104,17 +105,29 @@ const IW = W - 4; // inner width
 
 // ── Gather data ──────────────────────────────────────────────
 
-let files: string[];
-try {
-  files = fs.readdirSync(CACHE_DIR).filter((f) => f.endsWith(".json") && !f.includes("_raw"));
-} catch {
-  console.log("No cache directory found.");
-  process.exit(0);
+function listCacheFiles(): string[] {
+  try {
+    return fs.readdirSync(CACHE_DIR).filter((f) => f.endsWith(".json") && !f.includes("_raw"));
+  } catch {
+    return [];
+  }
 }
 
+let files = listCacheFiles();
 if (files.length === 0) {
-  console.log("Cache is empty.");
-  process.exit(0);
+  const port = process.env.PORT || "31415";
+  console.log(`Cache empty — refreshing vlissingen via http://localhost:${port}...`);
+  try {
+    execSync(`curl -sf http://localhost:${port}/conditions/vlissingen -o /dev/null`);
+  } catch {
+    console.log("Server not reachable. Start it with `make server-start`.");
+    process.exit(0);
+  }
+  files = listCacheFiles();
+  if (files.length === 0) {
+    console.log("Refresh produced no cache entries.");
+    process.exit(0);
+  }
 }
 
 interface LocCacheBucket {

@@ -46,7 +46,8 @@ RESOURCES     = $(shell find resources -type f)
 # ── Targets ───────────────────────────────────────────────────
 
 .PHONY: help build build-dev release-beta release-prod test run sim-start sim-stop clean keygen \
-       server-build server-start server-stop server-run server-debug server-clean
+       server-build server-start server-stop server-run server-debug server-clean \
+       astronomisch verwachting a v
 
 help: ## Show this help
 	@echo "Swimfo — Garmin Connect IQ Data Field"
@@ -139,8 +140,9 @@ server-start: server-build ## Start API proxy server in background
 	@if [ -f server/.pid ] && kill -0 $$(cat server/.pid) 2>/dev/null; then \
 		echo "Server already running (PID $$(cat server/.pid))"; \
 	else \
-		cd server && [ -f .env ] || cp .env.example .env; \
-		cd server && node dist/index.js & echo $$! > server/.pid; \
+		[ -f server/.env ] || cp server/.env.example server/.env; \
+		(cd server && exec node dist/index.js) & \
+		echo $$! > server/.pid; \
 		echo "Server started (PID $$(cat server/.pid))"; \
 	fi
 
@@ -161,9 +163,25 @@ server-run: server-build ## Run API proxy server in foreground
 PORT      ?= 31415
 LOCATION  ?= vlissingen
 
-server-debug: server-build ## Fetch fresh data and print cache (LOCATION=vlissingen)
+# Optional procesType for `make server-debug [a|v|astronomisch|verwachting]`.
+# Picked up positionally from the make goals; the alias words are .PHONY no-ops
+# so make doesn't complain about them being undefined targets.
+PROCESTYPE_ARG := $(filter astronomisch verwachting a v,$(MAKECMDGOALS))
+PROCESTYPE     := astronomisch
+ifeq ($(PROCESTYPE_ARG),v)
+  PROCESTYPE := verwachting
+endif
+ifeq ($(PROCESTYPE_ARG),verwachting)
+  PROCESTYPE := verwachting
+endif
+
+astronomisch verwachting a v:
+	@:
+
+server-debug: server-build ## Refresh cache + print pages; pass [a|v|astronomisch|verwachting] to also dump raw RWS tide
 	@curl -s http://localhost:$(PORT)/conditions/$(LOCATION) > /dev/null && echo "Refreshed $(LOCATION)" || echo "Server not reachable, showing stale cache"
 	@node server/dist/debug.js
+	@if [ -n "$(PROCESTYPE_ARG)" ]; then echo ""; node server/dist/debug-tide.js $(LOCATION) $(PROCESTYPE); fi
 
 server-clean: server-stop ## Remove server build artifacts, cache, and logs
 	rm -rf server/node_modules server/dist server/cache server/logs server/.pid
