@@ -123,11 +123,13 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   return result;
 }
 
-async function fetchTide(loc: Location): Promise<TideResult> {
-  const key = `tide_${loc.rwsCode}`;
-  const cached = getCached<TideResult>(key);
+type ProcesType = "astronomisch" | "verwachting";
+
+async function fetchTideExtrema(loc: Location, procesType: ProcesType): Promise<ParsedExtremum[]> {
+  const key = `tide_${procesType}_${loc.rwsCode}`;
+  const cached = getCached<ParsedExtremum[]>(key);
   if (cached) {
-    log("  tide: cache hit");
+    log(`  tide(${procesType}): cache hit`);
     return cached;
   }
 
@@ -140,7 +142,7 @@ async function fetchTide(loc: Location): Promise<TideResult> {
     AquoPlusWaarnemingMetadata: {
       AquoMetadata: {
         Grootheid: { Code: "WATHTE" },
-        ProcesType: "astronomisch",
+        ProcesType: procesType,
       },
     },
     Periode: {
@@ -150,7 +152,7 @@ async function fetchTide(loc: Location): Promise<TideResult> {
   };
 
   const url = `${RWS_BASE}/OphalenWaarnemingen`;
-  log(`  tide: POST ${url}`);
+  log(`  tide(${procesType}): POST ${url}`);
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -161,13 +163,52 @@ async function fetchTide(loc: Location): Promise<TideResult> {
   });
   const body = await res.json() as RwsResponse;
 
-  // Dump raw response for debugging
-  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_raw.json`);
+  // Dump raw response for debugging — astronomisch keeps the legacy filename
+  // so debug-tide.ts can read it without an extra suffix.
+  const suffix = procesType === "astronomisch" ? "" : `_${procesType}`;
+  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}${suffix}_raw.json`);
   fs.writeFileSync(dumpFile, JSON.stringify(body, null, 2));
 
-  const result = parseTide(body);
-  setCache(key, result);
-  return result;
+  const extrema = parseExtrema(body);
+  log(`  tide(${procesType}): ${extrema.length} extrema`);
+  setCache(key, extrema);
+  return extrema;
+}
+
+async function fetchTide(loc: Location): Promise<TideResult> {
+  // Fetch both series in parallel. Verwachting (weather-adjusted, refreshed
+  // every 6h) takes precedence within its forecast window — typically ~2 days
+  // — and astronomisch fills in beyond the last verwachting extremum.
+  const [astroExtrema, verwExtrema] = await Promise.all([
+    fetchTideExtrema(loc, "astronomisch").catch((err) => {
+      log(`  tide(astronomisch): error ${(err as Error).message}`);
+      return [] as ParsedExtremum[];
+    }),
+    fetchTideExtrema(loc, "verwachting").catch((err) => {
+      log(`  tide(verwachting): error ${(err as Error).message}`);
+      return [] as ParsedExtremum[];
+    }),
+  ]);
+
+  let merged: ParsedExtremum[];
+  if (verwExtrema.length > 0) {
+    // The last verwachting extremum and the next astronomisch one often
+    // describe the same physical HW/LW (predictions a few minutes apart).
+    // Skip astro extrema until the type alternates — that's the genuine next
+    // turn of the tide, and astronomisch alternates cleanly from there.
+    const lastVerw = verwExtrema[verwExtrema.length - 1];
+    const tailStart = astroExtrema.findIndex(
+      (e) => e.epoch > lastVerw.epoch && e.type !== lastVerw.type,
+    );
+    const tail = tailStart >= 0 ? astroExtrema.slice(tailStart) : [];
+    merged = [...verwExtrema, ...tail];
+    log(`  tide: merged ${verwExtrema.length} verw + ${tail.length} astro tail`);
+  } else {
+    merged = astroExtrema;
+    log(`  tide: astronomisch only (no verwachting data)`);
+  }
+
+  return buildTideTable(merged);
 }
 
 async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
@@ -222,13 +263,12 @@ interface RwsResponse {
   WaarnemingenLijst?: RwsWaarneming[];
 }
 
-function parseTide(data: RwsResponse): TideResult {
-  const result: TideResult = {};
+function parseExtrema(data: RwsResponse): ParsedExtremum[] {
   const lijst = data?.WaarnemingenLijst;
-  if (!Array.isArray(lijst) || lijst.length === 0) return result;
+  if (!Array.isArray(lijst) || lijst.length === 0) return [];
 
   const metingen = lijst[0]?.MetingenLijst;
-  if (!Array.isArray(metingen) || metingen.length < 3) return result;
+  if (!Array.isArray(metingen) || metingen.length < 3) return [];
 
   const points: TidePoint[] = metingen
     .map((m) => ({
@@ -238,21 +278,21 @@ function parseTide(data: RwsResponse): TideResult {
     .filter((p) => p.time != null && p.value != null)
     .map((p) => ({ ...p, value: p.value / 100 }));
 
-  if (points.length < 3) return result;
+  if (points.length < 3) return [];
 
-  const nowMs = Date.now();
+  // Direction-change algorithm with plateau midpoints.
+  return findExtrema(points);
+}
 
-  log(`  tide: ${points.length} points`);
-
-  // Find all extrema using direction-change algorithm with plateau midpoints
-  const extrema = findExtrema(points);
-  log(`  tide: found ${extrema.length} extrema`);
+function buildTideTable(extrema: ParsedExtremum[]): TideResult {
+  const result: TideResult = {};
+  if (extrema.length === 0) return result;
 
   // Tide table: most recent past extremum + next ~7 days of extrema.
   // RWS gives us 7 days forward; watch parses 28 HW/LW + a few SPR/DTJ fine.
   // The watch derives prev/next/direction from this table at render time, so
   // it stays accurate when an extremum passes between 30-min syncs.
-  const nowSec = nowMs / 1000;
+  const nowSec = Date.now() / 1000;
   const futureLimit = 28; // ~7 days of HW/LW
   const past = extrema.filter((e) => e.epoch <= nowSec).slice(-1);
   const future = extrema.filter((e) => e.epoch > nowSec).slice(0, futureLimit);

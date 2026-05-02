@@ -121,6 +121,15 @@ Swimfo uses two free public APIs -- no API keys required:
 
 More information about Dutch tides: [Rijkswaterstaat - Getij](https://www.rijkswaterstaat.nl/water/waterdata/getij#ritme-van-eb-en-vloed)
 
+### Astronomical vs weather-adjusted
+
+RWS publishes two tide series:
+
+- **Astronomisch** — pure astronomical prediction from the gravitational pull of moon and sun. Covers ~7 days ahead and doesn't change unless the catalog is republished.
+- **Verwachting** — weather-adjusted forecast that folds in wind setup and atmospheric pressure on top of the astronomical baseline. Refreshed by RWS every 6 hours; horizon is typically ~2 days.
+
+The server fetches both in parallel. Verwachting takes precedence within its forecast window, and astronomisch fills the rest of the 7-day HW/LW table. At the seam — where the same physical HW/LW shows up in both series a few minutes apart — the merge skips astronomical extrema until the type alternates again, so the watch always sees a clean HW→LW→HW sequence. The watch itself is unaware of the split: it just receives one merged tide table.
+
 ### Water level between measurements
 
 RWS delivers predicted extrema (HW/LW) plus coarse samples in between. The server packs a multi-day HW/LW forecast into the sync payload; on each redraw the watch picks the extrema bracketing the current clock time from that forecast and interpolates between them using a raised-cosine curve:
