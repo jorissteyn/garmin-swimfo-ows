@@ -88,17 +88,16 @@ interface WaterTempResult {
   waterTemp?: number;
 }
 
-interface TidePoint {
-  time: string;
-  value: number;
-}
-
 interface ParsedExtremum {
   type: "HW" | "LW";
-  idx: number;
   level: number;
   epoch: number;
 }
+
+// RWS Aquo "Groepering" filter that returns tide extremes (HW/LW) directly.
+// GETETBRKD2 is referenced to NAP and works for all Dutch coastal stations.
+// The MSL-referenced variant would be GETETBRKDMSL2.
+const TIDE_GROEPERING = "GETETBRKD2";
 
 // ── Upstream fetchers ────────────────────────────────────────
 
@@ -123,18 +122,16 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   return result;
 }
 
-type ProcesType = "astronomisch" | "verwachting";
-
-async function fetchTideExtrema(loc: Location, procesType: ProcesType): Promise<ParsedExtremum[]> {
-  const key = `tide_${procesType}_${loc.rwsCode}`;
-  const cached = getCached<ParsedExtremum[]>(key);
+async function fetchTide(loc: Location): Promise<TideResult> {
+  const key = `tide_${loc.rwsCode}`;
+  const cached = getCached<TideResult>(key);
   if (cached) {
-    log(`  tide(${procesType}): cache hit`);
+    log("  tide: cache hit");
     return cached;
   }
 
   const now = new Date();
-  const start = new Date(now.getTime() - 7 * 3600 * 1000);
+  const start = new Date(now.getTime() - 12 * 3600 * 1000);
   const end = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
 
   const payload = {
@@ -142,7 +139,7 @@ async function fetchTideExtrema(loc: Location, procesType: ProcesType): Promise<
     AquoPlusWaarnemingMetadata: {
       AquoMetadata: {
         Grootheid: { Code: "WATHTE" },
-        ProcesType: procesType,
+        Groepering: { Code: TIDE_GROEPERING },
       },
     },
     Periode: {
@@ -152,7 +149,7 @@ async function fetchTideExtrema(loc: Location, procesType: ProcesType): Promise<
   };
 
   const url = `${RWS_BASE}/OphalenWaarnemingen`;
-  log(`  tide(${procesType}): POST ${url}`);
+  log(`  tide: POST ${url} (Groepering=${TIDE_GROEPERING})`);
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -163,52 +160,14 @@ async function fetchTideExtrema(loc: Location, procesType: ProcesType): Promise<
   });
   const body = await res.json() as RwsResponse;
 
-  // Dump raw response for debugging — astronomisch keeps the legacy filename
-  // so debug-tide.ts can read it without an extra suffix.
-  const suffix = procesType === "astronomisch" ? "" : `_${procesType}`;
-  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}${suffix}_raw.json`);
+  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_raw.json`);
   fs.writeFileSync(dumpFile, JSON.stringify(body, null, 2));
 
-  const extrema = parseExtrema(body);
-  log(`  tide(${procesType}): ${extrema.length} extrema`);
-  setCache(key, extrema);
-  return extrema;
-}
-
-async function fetchTide(loc: Location): Promise<TideResult> {
-  // Fetch both series in parallel. Verwachting (weather-adjusted, refreshed
-  // every 6h) takes precedence within its forecast window — typically ~2 days
-  // — and astronomisch fills in beyond the last verwachting extremum.
-  const [astroExtrema, verwExtrema] = await Promise.all([
-    fetchTideExtrema(loc, "astronomisch").catch((err) => {
-      log(`  tide(astronomisch): error ${(err as Error).message}`);
-      return [] as ParsedExtremum[];
-    }),
-    fetchTideExtrema(loc, "verwachting").catch((err) => {
-      log(`  tide(verwachting): error ${(err as Error).message}`);
-      return [] as ParsedExtremum[];
-    }),
-  ]);
-
-  let merged: ParsedExtremum[];
-  if (verwExtrema.length > 0) {
-    // The last verwachting extremum and the next astronomisch one often
-    // describe the same physical HW/LW (predictions a few minutes apart).
-    // Skip astro extrema until the type alternates — that's the genuine next
-    // turn of the tide, and astronomisch alternates cleanly from there.
-    const lastVerw = verwExtrema[verwExtrema.length - 1];
-    const tailStart = astroExtrema.findIndex(
-      (e) => e.epoch > lastVerw.epoch && e.type !== lastVerw.type,
-    );
-    const tail = tailStart >= 0 ? astroExtrema.slice(tailStart) : [];
-    merged = [...verwExtrema, ...tail];
-    log(`  tide: merged ${verwExtrema.length} verw + ${tail.length} astro tail`);
-  } else {
-    merged = astroExtrema;
-    log(`  tide: astronomisch only (no verwachting data)`);
-  }
-
-  return buildTideTable(merged);
+  const extrema = parseTideExtrema(body);
+  log(`  tide: ${extrema.length} extrema`);
+  const result = buildTideTable(extrema);
+  setCache(key, result);
+  return result;
 }
 
 async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
@@ -263,25 +222,36 @@ interface RwsResponse {
   WaarnemingenLijst?: RwsWaarneming[];
 }
 
-function parseExtrema(data: RwsResponse): ParsedExtremum[] {
+// The Groepering=GETETBRKD2 response carries each HW/LW timestamp + level but
+// no per-meting indicator of which type it is. Tide extrema strictly
+// alternate HW↔LW, so we classify by comparing each point to its neighbor:
+// the higher of any adjacent pair is HW, the lower is LW.
+function parseTideExtrema(data: RwsResponse): ParsedExtremum[] {
   const lijst = data?.WaarnemingenLijst;
   if (!Array.isArray(lijst) || lijst.length === 0) return [];
 
-  const metingen = lijst[0]?.MetingenLijst;
-  if (!Array.isArray(metingen) || metingen.length < 3) return [];
+  const pts: { epoch: number; level: number }[] = [];
+  for (const w of lijst) {
+    const metingen = w.MetingenLijst;
+    if (!Array.isArray(metingen)) continue;
+    for (const m of metingen) {
+      if (m.Tijdstip == null || m.Meetwaarde?.Waarde_Numeriek == null) continue;
+      pts.push({
+        epoch: new Date(m.Tijdstip).getTime() / 1000,
+        level: m.Meetwaarde.Waarde_Numeriek / 100,
+      });
+    }
+  }
+  pts.sort((a, b) => a.epoch - b.epoch);
 
-  const points: TidePoint[] = metingen
-    .map((m) => ({
-      time: m.Tijdstip as string,
-      value: m.Meetwaarde?.Waarde_Numeriek as number,
-    }))
-    .filter((p) => p.time != null && p.value != null)
-    .map((p) => ({ ...p, value: p.value / 100 }));
-
-  if (points.length < 3) return [];
-
-  // Direction-change algorithm with plateau midpoints.
-  return findExtrema(points);
+  const out: ParsedExtremum[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const neighbor = i + 1 < pts.length ? pts[i + 1] : pts[i - 1];
+    if (!neighbor) continue;
+    const type: "HW" | "LW" = pts[i].level >= neighbor.level ? "HW" : "LW";
+    out.push({ type, level: pts[i].level, epoch: pts[i].epoch });
+  }
+  return out;
 }
 
 function buildTideTable(extrema: ParsedExtremum[]): TideResult {
@@ -323,49 +293,6 @@ function buildTideTable(extrema: ParsedExtremum[]): TideResult {
   result.tideTable = tideRows;
 
   return result;
-}
-
-function findExtrema(points: TidePoint[]): ParsedExtremum[] {
-  const extrema: ParsedExtremum[] = [];
-  let dir: "up" | "down" | null = null;
-  let extIdx = 0;
-  let extVal = points[0].value;
-  let platStart = 0;
-
-  for (let i = 1; i < points.length; i++) {
-    const curr = points[i].value;
-    const prev = points[i - 1].value;
-
-    if (curr > prev) {
-      if (dir === "down") {
-        const midIdx = Math.floor((platStart + extIdx) / 2);
-        extrema.push({
-          type: "LW", idx: midIdx, level: extVal,
-          epoch: new Date(points[midIdx].time).getTime() / 1000,
-        });
-      }
-      dir = "up";
-      platStart = i;
-      extIdx = i;
-      extVal = curr;
-    } else if (curr < prev) {
-      if (dir === "up") {
-        const midIdx = Math.floor((platStart + extIdx) / 2);
-        extrema.push({
-          type: "HW", idx: midIdx, level: extVal,
-          epoch: new Date(points[midIdx].time).getTime() / 1000,
-        });
-      }
-      dir = "down";
-      platStart = i;
-      extIdx = i;
-      extVal = curr;
-    } else {
-      extIdx = i;
-    }
-  }
-
-  return extrema;
 }
 
 function parseWaterTemp(data: RwsResponse): WaterTempResult {
@@ -425,8 +352,8 @@ const server = http.createServer(async (req, res) => {
     const hasWaterTemp = loc.waterTemp !== false;
     const [weather, tide, waterTemp] = await Promise.all([
       fetchWeather(loc),
-      hasTide ? fetchTide(loc) : Promise.resolve({}),
-      hasWaterTemp ? fetchWaterTemp(loc) : Promise.resolve({}),
+      hasTide ? fetchTide(loc) : Promise.resolve({} as TideResult),
+      hasWaterTemp ? fetchWaterTemp(loc) : Promise.resolve({} as WaterTempResult),
     ]);
 
     const result = {

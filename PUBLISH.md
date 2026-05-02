@@ -46,7 +46,7 @@ VOOR DE ZEEUWSE OPEN WATER ZWEMMER
 Alles wat je nodig hebt voor een duik in de Westerschelde of Oosterschelde, op je pols.
 
 GETIJ OP ELK MOMENT
-Zie in één oogopslag of het water opkomt of afgaat, hoe hoog het nu staat, en wanneer het volgende hoogwater of laagwater komt. De app combineert de astronomische getijvoorspelling met de weersafhankelijke verwachting van Rijkswaterstaat (elke 6 uur ververst), zodat de getoonde waterstanden ook rekening houden met wind- en luchtdrukinvloeden zolang die voorspelling beschikbaar is. Daarbuiten valt de tabel terug op de astronomische voorspelling. Tussen de meetpunten door wordt het peil vloeiend bijgeschat — ook als je horloge even geen verbinding heeft. Groen pijltje omhoog betekent opkomend water, rood pijltje omlaag betekent afgaand.
+Zie in één oogopslag of het water opkomt of afgaat, hoe hoog het nu staat, en wanneer het volgende hoogwater of laagwater komt. De getijvoorspelling komt van Rijkswaterstaat. Tussen de meetpunten door wordt het peil vloeiend bijgeschat — ook als je horloge even geen verbinding heeft. Groen pijltje omhoog betekent opkomend water, rood pijltje omlaag betekent afgaand.
 
 GETIJDENTABEL — 7 DAGEN VOORUIT
 Tik op de getijpagina voor een volledig weekoverzicht van hoog- en laagwater.
