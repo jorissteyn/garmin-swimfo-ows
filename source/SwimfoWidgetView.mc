@@ -8,7 +8,7 @@ using Toybox.WatchUi;
 
 class SwimfoWidgetView extends WatchUi.View {
 
-    hidden const PAGE_COUNT = 4;
+    hidden const PAGE_COUNT = 5;
     hidden var _page as Lang.Number = 0;
     hidden var _syncRequestedAt as Lang.Number = 0;
 
@@ -77,8 +77,10 @@ class SwimfoWidgetView extends WatchUi.View {
             drawWaterPage(dc, w, h, data, fg, dim);
         } else if (_page == 2) {
             drawWeatherPage(dc, w, h, data, fg, dim);
-        } else {
+        } else if (_page == 3) {
             drawSyncPage(dc, w, h, data, fg, dim);
+        } else {
+            drawSettingsPage(dc, w, h, fg, dim);
         }
 
         drawDots(dc, w, h, dim, fg);
@@ -372,6 +374,26 @@ class SwimfoWidgetView extends WatchUi.View {
         var hint = syncPending ? "Sync gepland..." : "Tik om te verversen";
         dc.drawText(w / 2, h * 3 / 4, Graphics.FONT_XTINY,
             hint, Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // ---- Page 4: Settings ----
+
+    hidden function drawSettingsPage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
+            fg as Lang.Number, dim as Lang.Number) as Void {
+        // Center the "..." in the gap between the location header (drawn at
+        // h/8 by onUpdate) and the "Instellingen" label below.
+        var locBottom = h / 8 + dc.getFontHeight(Graphics.FONT_XTINY);
+        var instTop = h * 6 / 10;
+        var dotsY = (locBottom + instTop) / 2;
+
+        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, dotsY, Graphics.FONT_NUMBER_MEDIUM, "...",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, instTop, Graphics.FONT_TINY, "Instellingen",
+            Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(w / 2, h * 3 / 4, Graphics.FONT_XTINY, "Tik om te openen",
+            Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // ---- Page dots ----

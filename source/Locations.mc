@@ -7,6 +7,14 @@ module Locations {
     // RWS location codes for ddapi20-waterwebservices.rijkswaterstaat.nl
     // Same codes as used in seaswim PHP app.
 
+    // Total number of locations defined here. Picker UIs iterate 0..count()-1
+    // so adding a location only requires extending get() + settingsLabelRes()
+    // (plus the phone-side settings.xml entry, which is XML and can't share
+    // code).
+    function count() as Lang.Number {
+        return 5;
+    }
+
     function get(id as Lang.Number) as Lang.Dictionary {
         if (id == 1) {
             return {
@@ -46,6 +54,17 @@ module Locations {
             "lon" => 3.5964,
             "rwsCode" => "vlissingen"
         };
+    }
+
+    // Resource id for the descriptive setting label (e.g. "Westerschelde
+    // (Vlissingen)"), used by both the phone-side settings.xml and the
+    // on-watch picker.
+    function settingsLabelRes(id as Lang.Number) as Lang.ResourceId {
+        if (id == 1) { return Rez.Strings.locMarollegat; }
+        if (id == 2) { return Rez.Strings.locOranjeplaat; }
+        if (id == 3) { return Rez.Strings.locOssenisse; }
+        if (id == 4) { return Rez.Strings.locTerneuzen; }
+        return Rez.Strings.locVlissingen;
     }
 
     function getSelected() as Lang.Dictionary {

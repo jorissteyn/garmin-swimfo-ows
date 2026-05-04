@@ -50,7 +50,18 @@ class SwimfoWidgetDelegate extends WatchUi.BehaviorDelegate {
             WatchUi.requestUpdate();
             return true;
         }
+        if (page == 4) {
+            SwimfoSettings.open();
+            return true;
+        }
         return false;
+    }
+
+    // Hardware menu button shortcut — opens settings from any page so users
+    // don't have to swipe to page 4 every time.
+    function onMenu() as Lang.Boolean {
+        SwimfoSettings.open();
+        return true;
     }
 
 }
