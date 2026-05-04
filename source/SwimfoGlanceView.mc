@@ -104,7 +104,8 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
     }
 
     hidden function pickAnchors(d as Lang.Dictionary, now as Lang.Number) as Lang.Array? {
-        var table = d["tideTable"];
+        var picked = Procestype.pickTable(d);
+        var table = picked[0];
         if (table == null || !(table instanceof Lang.Array)) { return null; }
         var entries = table as Lang.Array;
         var prevE = null;

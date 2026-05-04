@@ -1,3 +1,4 @@
 <properties>
     <property id="locationId" type="number">0</property>
+    <property id="procesTypeId" type="number">0</property>
 </properties>

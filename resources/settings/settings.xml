@@ -8,4 +8,10 @@
             <listEntry value="4">@Strings.locTerneuzen</listEntry>
         </settingConfig>
     </setting>
+    <setting propertyKey="@Properties.procesTypeId" title="@Strings.settingProcesType">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.procesTypeAstronomisch</listEntry>
+            <listEntry value="1">@Strings.procesTypeVerwachting</listEntry>
+        </settingConfig>
+    </setting>
 </settings>

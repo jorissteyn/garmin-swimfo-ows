@@ -90,8 +90,11 @@ class SwimfoWidgetView extends WatchUi.View {
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
         var cy = h * 4 / 10;
         var now = Time.now().value();
-        var hasTideData = (data["tideTable"] instanceof Lang.Array);
-        var anchors = pickAnchors(data, now);
+        var picked = Procestype.pickTable(data);
+        var pickedTable = picked[0] as Lang.Array?;
+        var pickedLabel = picked[1] as Lang.String?;
+        var hasTideData = (pickedTable != null);
+        var anchors = (pickedTable != null) ? pickAnchorsFromTable(pickedTable, now) : null;
 
         var level = "--";
         var isRising = false;
@@ -130,6 +133,15 @@ class SwimfoWidgetView extends WatchUi.View {
             dc.drawText(w / 2, cy + 8 + dc.getFontHeight(Graphics.FONT_MEDIUM),
                 Graphics.FONT_XTINY, "Geen getij", Graphics.TEXT_JUSTIFY_CENTER);
             return;
+        }
+
+        // ProcesType label above the tide info — reflects which RWS series
+        // (astronomisch / verwachting) is actually being shown after fallback.
+        if (pickedLabel != null) {
+            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, h / 8 + dc.getFontHeight(Graphics.FONT_XTINY),
+                Graphics.FONT_XTINY, pickedLabel as Lang.String,
+                Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         // Tide arrow icon
@@ -178,9 +190,7 @@ class SwimfoWidgetView extends WatchUi.View {
     // The server sends the forecast once per sync; the watch reselects anchors
     // on every redraw so the shown direction flips exactly when an extremum
     // passes, not 30 minutes later.
-    hidden function pickAnchors(data as Lang.Dictionary, now as Lang.Number) as Lang.Array? {
-        var table = data["tideTable"];
-        if (table == null || !(table instanceof Lang.Array)) { return null; }
+    hidden function pickAnchorsFromTable(table as Lang.Array, now as Lang.Number) as Lang.Array? {
         var entries = table as Lang.Array;
         var prevE = null;
         var prevL = null;

@@ -11,10 +11,6 @@ interface TideExtremum {
   epoch: number;
 }
 
-interface TideData {
-  tideTable?: TideExtremum[];
-}
-
 interface WeatherData {
   airTemp?: number;
   windSpeed?: number;
@@ -28,8 +24,6 @@ interface CacheTyped<T> {
   data: T;
   ts: number;
 }
-
-type AnyCache = CacheTyped<TideData> | CacheTyped<WeatherData> | CacheTyped<WaterTempData>;
 
 function fmtAge(ms: number): string {
   const sec = Math.floor(ms / 1000);
@@ -132,7 +126,8 @@ if (files.length === 0) {
 
 interface LocCacheBucket {
   weather?: CacheTyped<WeatherData>;
-  tide?: CacheTyped<TideData>;
+  tideAstro?: CacheTyped<TideExtremum[]>;
+  tideVerw?: CacheTyped<TideExtremum[]>;
   watertemp?: CacheTyped<WaterTempData>;
 }
 
@@ -144,32 +139,37 @@ for (const file of files) {
   const [type, ...rest] = name.split("_");
   const loc = rest.join("_");
   if (!byLocation[loc]) byLocation[loc] = {};
-  (byLocation[loc] as Record<string, AnyCache>)[type] = { data: entry.data, ts: entry.ts };
+  const bucket = byLocation[loc];
+  if (type === "weather") bucket.weather = { data: entry.data, ts: entry.ts };
+  else if (type === "tideAstro") bucket.tideAstro = { data: entry.data, ts: entry.ts };
+  else if (type === "tideVerw") bucket.tideVerw = { data: entry.data, ts: entry.ts };
+  else if (type === "watertemp") bucket.watertemp = { data: entry.data, ts: entry.ts };
 }
 
 for (const [loc, types] of Object.entries(byLocation)) {
   const locName = LOCATIONS[loc]?.name || loc;
   const weather: WeatherData = types.weather?.data || {};
-  const tide: TideData = types.tide?.data || {};
+  const tideAstro: TideExtremum[] = types.tideAstro?.data || [];
+  const tideVerw: TideExtremum[] = types.tideVerw?.data || [];
   const watertemp: WaterTempData = types.watertemp?.data || {};
   const latestTs = Math.max(
     types.weather?.ts || 0,
-    types.tide?.ts || 0,
+    types.tideAstro?.ts || 0,
+    types.tideVerw?.ts || 0,
     types.watertemp?.ts || 0
   );
 
   console.log(`\n  ${BOLD}${locName.toUpperCase()}${RESET}\n`);
 
   // Pick prev/next extrema from tideTable at current time, mirroring the watch.
+  // Default debug view = astronomisch (matches the default procesType setting).
   const nowSec = Date.now() / 1000;
   let prevX: TideExtremum | null = null;
   let nextX: TideExtremum | null = null;
-  if (Array.isArray(tide.tideTable)) {
-    for (const e of tide.tideTable) {
-      if (e.type !== "HW" && e.type !== "LW") continue;
-      if (e.epoch <= nowSec) prevX = e;
-      else if (!nextX) { nextX = e; break; }
-    }
+  for (const e of tideAstro) {
+    if (e.type !== "HW" && e.type !== "LW") continue;
+    if (e.epoch <= nowSec) prevX = e;
+    else if (!nextX) { nextX = e; break; }
   }
   const rising = prevX && nextX ? (nextX.level ?? 0) > (prevX.level ?? 0) : null;
   const dir = rising != null ? (rising ? "Opk" : "Afg") : "---";
@@ -207,7 +207,8 @@ for (const [loc, types] of Object.entries(byLocation)) {
     `  Prev extremum: ${prevInfo}`,
     `  Next extremum: ${nextInfo}`,
   ];
-  if (Array.isArray(tide.tideTable) && tide.tideTable.length > 0) {
+  const TIDE_TABLE_FOR_DEBUG = tideAstro;
+  if (TIDE_TABLE_FOR_DEBUG.length > 0) {
     tideDataLines.push("");
     const dateKey = (epoch: number): string =>
       new Date(epoch * 1000).toLocaleDateString("nl-NL", {
@@ -217,14 +218,14 @@ for (const [loc, types] of Object.entries(byLocation)) {
 
     // Pass 1: index lunar labels by date.
     const lunarByDate: Record<string, string> = {};
-    for (const e of tide.tideTable) {
+    for (const e of TIDE_TABLE_FOR_DEBUG) {
       if (e.type !== "SPR" && e.type !== "DTJ") continue;
       lunarByDate[dateKey(e.epoch)] = e.type === "SPR" ? "springtij" : "doodtij";
     }
 
     // Pass 2: emit header (+ optional sub) per date, then HW/LW rows only.
     let lastDate = "";
-    for (const e of tide.tideTable) {
+    for (const e of TIDE_TABLE_FOR_DEBUG) {
       const dateStr = dateKey(e.epoch);
       if (dateStr !== lastDate) {
         tideDataLines.push(`  ${BOLD}${dateStr}${RESET}`);
@@ -242,11 +243,52 @@ for (const [loc, types] of Object.entries(byLocation)) {
       });
       const arrowColor = past ? DIM : (e.type === "HW" ? GREEN : RED);
       const arrow = e.type === "HW" ? `${arrowColor}\u25b2${RESET}` : `${arrowColor}\u25bc${RESET}`;
-      const label = `${arrowColor}${e.type}${RESET}`;
-      tideDataLines.push(`    ${c}${arrow} ${label} ${(e.level ?? 0).toFixed(2).padStart(6)}m  ${time}${r}`);
+      const lab = `${arrowColor}${e.type}${RESET}`;
+      tideDataLines.push(`    ${c}${arrow} ${lab} ${(e.level ?? 0).toFixed(2).padStart(6)}m  ${time}${r}`);
     }
   }
-  console.log(box("Tide data", tideDataLines, W));
+  console.log(box("Tide data — astronomisch", tideDataLines, W));
+
+  // Second box: verwachting (weather-adjusted forecast). Same layout as astro.
+  if (tideVerw.length > 0) {
+    const verwLines: string[] = [];
+    let pV: TideExtremum | null = null;
+    let nV: TideExtremum | null = null;
+    for (const e of tideVerw) {
+      if (e.type !== "HW" && e.type !== "LW") continue;
+      if (e.epoch <= nowSec) pV = e;
+      else if (!nV) { nV = e; break; }
+    }
+    verwLines.push(`  Prev extremum: ${pV ? fmtExtremum(pV) : `${DIM}none${RESET}`}`);
+    verwLines.push(`  Next extremum: ${nV ? fmtExtremum(nV) : `${DIM}none${RESET}`}`);
+    verwLines.push("");
+    const dateKey = (epoch: number): string =>
+      new Date(epoch * 1000).toLocaleDateString("nl-NL", {
+        weekday: "short", day: "numeric", month: "short",
+        timeZone: "Europe/Amsterdam",
+      });
+    let lastDate = "";
+    for (const e of tideVerw) {
+      const dateStr = dateKey(e.epoch);
+      if (dateStr !== lastDate) {
+        verwLines.push(`  ${BOLD}${dateStr}${RESET}`);
+        lastDate = dateStr;
+      }
+      if (e.type === "SPR" || e.type === "DTJ") continue;
+      const past = e.epoch < nowSec;
+      const c = past ? DIM : "";
+      const r = past ? RESET : "";
+      const time = new Date(e.epoch * 1000).toLocaleTimeString("nl-NL", {
+        hour: "2-digit", minute: "2-digit", hour12: false,
+        timeZone: "Europe/Amsterdam",
+      });
+      const arrowColor = past ? DIM : (e.type === "HW" ? GREEN : RED);
+      const arrow = e.type === "HW" ? `${arrowColor}▲${RESET}` : `${arrowColor}▼${RESET}`;
+      const lab = `${arrowColor}${e.type}${RESET}`;
+      verwLines.push(`    ${c}${arrow} ${lab} ${(e.level ?? 0).toFixed(2).padStart(6)}m  ${time}${r}`);
+    }
+    console.log(box("Tide data — verwachting", verwLines, W));
+  }
 
   // ── Spring/neap tide (computed live) ──
   const moon = getMoonInfo();

@@ -6,4 +6,7 @@
     <string id="locOranjeplaat">Veerse Meer (Oranjeplaat)</string>
     <string id="locOssenisse">Westerschelde (Ossenisse)</string>
     <string id="locTerneuzen">Westerschelde (Terneuzen)</string>
+    <string id="settingProcesType">Procestype RWS</string>
+    <string id="procesTypeAstronomisch">Astronomisch</string>
+    <string id="procesTypeVerwachting">Verwachting</string>
 </strings>

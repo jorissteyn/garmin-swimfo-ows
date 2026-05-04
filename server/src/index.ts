@@ -82,6 +82,7 @@ interface TideExtremum {
 
 interface TideResult {
   tideTable?: TideExtremum[];
+  tideTableVerwachting?: TideExtremum[];
 }
 
 interface WaterTempResult {
@@ -94,10 +95,19 @@ interface ParsedExtremum {
   epoch: number;
 }
 
+type ProcesType = "astronomisch" | "verwachting";
+
 // RWS Aquo "Groepering" filter that returns tide extremes (HW/LW) directly.
 // GETETBRKD2 is referenced to NAP and works for all Dutch coastal stations.
 // The MSL-referenced variant would be GETETBRKDMSL2.
 const TIDE_GROEPERING = "GETETBRKD2";
+
+// Cache key per procesType. Kept distinct from the loc rwsCode segment so
+// debug.ts can split on `_` and recover both fields cleanly.
+function tideCacheKey(loc: Location, p: ProcesType): string {
+  const prefix = p === "astronomisch" ? "tideAstro" : "tideVerw";
+  return `${prefix}_${loc.rwsCode}`;
+}
 
 // ── Upstream fetchers ────────────────────────────────────────
 
@@ -122,11 +132,11 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   return result;
 }
 
-async function fetchTide(loc: Location): Promise<TideResult> {
-  const key = `tide_${loc.rwsCode}`;
-  const cached = getCached<TideResult>(key);
+async function fetchTideForProces(loc: Location, p: ProcesType): Promise<TideExtremum[]> {
+  const key = tideCacheKey(loc, p);
+  const cached = getCached<TideExtremum[]>(key);
   if (cached) {
-    log("  tide: cache hit");
+    log(`  tide(${p}): cache hit`);
     return cached;
   }
 
@@ -134,14 +144,22 @@ async function fetchTide(loc: Location): Promise<TideResult> {
   const start = new Date(now.getTime() - 12 * 3600 * 1000);
   const end = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
 
+  // RWS exposes the two ProcesTypes via different shapes:
+  //   - astronomisch: Groepering=GETETBRKD2 returns HW/LW extremes directly.
+  //   - verwachting: only available as a 10-min WATHTE time series; combining
+  //     with GETETBRKD2 gives HTTP 204. We fetch the time series and run
+  //     local peak detection over it.
+  const useGroepering = p === "astronomisch";
+  const aquo: Record<string, unknown> = {
+    Grootheid: { Code: "WATHTE" },
+    ProcesType: p,
+  };
+  if (useGroepering) {
+    aquo.Groepering = { Code: TIDE_GROEPERING };
+  }
   const payload = {
     Locatie: { Code: loc.rwsCode },
-    AquoPlusWaarnemingMetadata: {
-      AquoMetadata: {
-        Grootheid: { Code: "WATHTE" },
-        Groepering: { Code: TIDE_GROEPERING },
-      },
-    },
+    AquoPlusWaarnemingMetadata: { AquoMetadata: aquo },
     Periode: {
       Begindatumtijd: fmtDate(start),
       Einddatumtijd: fmtDate(end),
@@ -149,7 +167,7 @@ async function fetchTide(loc: Location): Promise<TideResult> {
   };
 
   const url = `${RWS_BASE}/OphalenWaarnemingen`;
-  log(`  tide: POST ${url} (Groepering=${TIDE_GROEPERING})`);
+  log(`  tide(${p}): POST ${url}${useGroepering ? ` (Groepering=${TIDE_GROEPERING})` : ""}`);
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -158,15 +176,39 @@ async function fetchTide(loc: Location): Promise<TideResult> {
     },
     body: JSON.stringify(payload),
   });
-  const body = await res.json() as RwsResponse;
+  const text = await res.text();
+  if (!text) {
+    log(`  tide(${p}): empty response (HTTP ${res.status})`);
+    return [];
+  }
+  const body = JSON.parse(text) as RwsResponse;
 
-  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_raw.json`);
+  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_${p}_raw.json`);
   fs.writeFileSync(dumpFile, JSON.stringify(body, null, 2));
 
-  const extrema = parseTideExtrema(body);
-  log(`  tide: ${extrema.length} extrema`);
-  const result = buildTideTable(extrema);
-  setCache(key, result);
+  const extrema = useGroepering
+    ? parseTideExtrema(body)
+    : findExtremaFromSeries(body);
+  log(`  tide(${p}): ${extrema.length} extrema`);
+  const table = buildTideTable(extrema);
+  setCache(key, table);
+  return table;
+}
+
+async function fetchTide(loc: Location): Promise<TideResult> {
+  const [astro, verw] = await Promise.all([
+    fetchTideForProces(loc, "astronomisch").catch((err) => {
+      log(`  tide(astronomisch): error ${(err as Error).message}`);
+      return [] as TideExtremum[];
+    }),
+    fetchTideForProces(loc, "verwachting").catch((err) => {
+      log(`  tide(verwachting): error ${(err as Error).message}`);
+      return [] as TideExtremum[];
+    }),
+  ]);
+  const result: TideResult = {};
+  if (astro.length > 0) result.tideTable = astro;
+  if (verw.length > 0) result.tideTableVerwachting = verw;
   return result;
 }
 
@@ -254,9 +296,57 @@ function parseTideExtrema(data: RwsResponse): ParsedExtremum[] {
   return out;
 }
 
-function buildTideTable(extrema: ParsedExtremum[]): TideResult {
-  const result: TideResult = {};
-  if (extrema.length === 0) return result;
+// Find HW/LW extrema in a 10-minute time series (used for the verwachting
+// series, which RWS doesn't expose in any extremes-grouping). Direction-change
+// detection with plateau midpoint to keep a sample-aligned epoch on flats.
+function findExtremaFromSeries(data: RwsResponse): ParsedExtremum[] {
+  const lijst = data?.WaarnemingenLijst;
+  if (!Array.isArray(lijst) || lijst.length === 0) return [];
+
+  const pts: { epoch: number; level: number }[] = [];
+  for (const w of lijst) {
+    const metingen = w.MetingenLijst;
+    if (!Array.isArray(metingen)) continue;
+    for (const m of metingen) {
+      if (m.Tijdstip == null || m.Meetwaarde?.Waarde_Numeriek == null) continue;
+      pts.push({
+        epoch: new Date(m.Tijdstip).getTime() / 1000,
+        level: m.Meetwaarde.Waarde_Numeriek / 100,
+      });
+    }
+  }
+  pts.sort((a, b) => a.epoch - b.epoch);
+  if (pts.length < 3) return [];
+
+  const out: ParsedExtremum[] = [];
+  let dir: "up" | "down" | null = null;
+  let extIdx = 0;
+  let extVal = pts[0].level;
+  let platStart = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const curr = pts[i].level;
+    const prev = pts[i - 1].level;
+    if (curr > prev) {
+      if (dir === "down") {
+        const midIdx = Math.floor((platStart + extIdx) / 2);
+        out.push({ type: "LW", level: extVal, epoch: pts[midIdx].epoch });
+      }
+      dir = "up"; platStart = i; extIdx = i; extVal = curr;
+    } else if (curr < prev) {
+      if (dir === "up") {
+        const midIdx = Math.floor((platStart + extIdx) / 2);
+        out.push({ type: "HW", level: extVal, epoch: pts[midIdx].epoch });
+      }
+      dir = "down"; platStart = i; extIdx = i; extVal = curr;
+    } else {
+      extIdx = i;
+    }
+  }
+  return out;
+}
+
+function buildTideTable(extrema: ParsedExtremum[]): TideExtremum[] {
+  if (extrema.length === 0) return [];
 
   // Tide table: most recent past extremum + next ~7 days of extrema.
   // RWS gives us 7 days forward; watch parses 28 HW/LW + a few SPR/DTJ fine.
@@ -290,9 +380,7 @@ function buildTideTable(extrema: ParsedExtremum[]): TideResult {
     tideRows.push(...lunar);
     tideRows.sort((a, b) => a.epoch - b.epoch);
   }
-  result.tideTable = tideRows;
-
-  return result;
+  return tideRows;
 }
 
 function parseWaterTemp(data: RwsResponse): WaterTempResult {

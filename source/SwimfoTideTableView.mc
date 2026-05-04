@@ -52,7 +52,9 @@ class SwimfoTideTableView extends WatchUi.View {
             return;
         }
 
-        var table = data["tideTable"];
+        var picked = Procestype.pickTable(data);
+        var table = picked[0];
+        var pickedLabel = picked[1] as Lang.String?;
         if (table == null || !(table instanceof Lang.Array)) {
             dc.drawText(w / 2, h / 2, Graphics.FONT_SMALL, "Geen getijdata",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -72,12 +74,23 @@ class SwimfoTideTableView extends WatchUi.View {
             _scroll = _totalRows - 1;
         }
 
+        // ProcesType header above the table. Hidden when the user has scrolled
+        // past the top so the up-arrow indicator can take its slot.
+        var headerY = 4;
+        var headerH = dc.getFontHeight(Graphics.FONT_XTINY);
+        if (pickedLabel != null && _scroll == 0) {
+            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, headerY, Graphics.FONT_XTINY, pickedLabel as Lang.String,
+                Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
         var rowHeight = dc.getFontHeight(Graphics.FONT_TINY) + 4;
-        _rowsVisible = ((h - 20) / rowHeight);
+        var topPadding = headerH + 8;
+        _rowsVisible = ((h - topPadding - 10) / rowHeight);
         if (_rowsVisible < 1) { _rowsVisible = 1; }
 
         var nowEpoch = Time.now().value();
-        var startY = 10;
+        var startY = topPadding;
 
         for (var i = 0; i < _rowsVisible && (i + _scroll) < rows.size(); i++) {
             var idx = i + _scroll;
