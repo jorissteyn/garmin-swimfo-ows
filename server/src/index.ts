@@ -444,13 +444,27 @@ const server = http.createServer(async (req, res) => {
       hasWaterTemp ? fetchWaterTemp(loc) : Promise.resolve({} as WaterTempResult),
     ]);
 
-    const result = {
+    const result: Record<string, unknown> = {
       locName: loc.name,
       ...weather,
       ...tide,
       ...waterTemp,
       ...(hasTide ? getMoonInfo() : {}),
     };
+
+    // ?iso adds a human-readable ISO8601 `date` next to each `epoch` in
+    // the tide tables. Off by default to keep the watch payload small.
+    if (url.searchParams.has("iso")) {
+      for (const key of ["tideTable", "tideTableVerwachting"]) {
+        const arr = result[key];
+        if (Array.isArray(arr)) {
+          result[key] = (arr as { epoch: number }[]).map((e) => ({
+            ...e,
+            date: new Date(e.epoch * 1000).toISOString(),
+          }));
+        }
+      }
+    }
 
     const json = JSON.stringify(result);
     log(`  -> ${json}`);
