@@ -15,16 +15,6 @@ class SwimfoService extends System.ServiceDelegate {
         ServiceDelegate.initialize();
     }
 
-    (:dev)
-    hidden function serverBase() as Lang.String {
-        return "http://localhost:31415";
-    }
-
-    (:prod)
-    hidden function serverBase() as Lang.String {
-        return "https://ows.j0r1s.nl";
-    }
-
     function onTemporalEvent() as Void {
         // Pre-register the next sync BEFORE the fetch. Connect IQ kills the
         // background service after a 30s wall clock; if makeWebRequest hangs
@@ -37,7 +27,7 @@ class SwimfoService extends System.ServiceDelegate {
         Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1800)));
 
         var loc = Locations.getSelected();
-        var url = serverBase() + "/conditions/" + loc["locationSlug"];
+        var url = SwimfoFetch.urlFor(loc);
         System.println("fetch=" + url);
 
         Communications.makeWebRequest(
@@ -56,17 +46,7 @@ class SwimfoService extends System.ServiceDelegate {
         var result = {} as Lang.Dictionary;
 
         if (code == 200 && data instanceof Lang.Dictionary) {
-            var d = data as Lang.Dictionary;
-            var keys = ["locName", "airTemp", "windSpeed", "waterTemp",
-                        "weatherTime", "waterTempTime",
-                        "tideTable", "tideTableVerwachting",
-                        "moonLabel"] as Lang.Array<Lang.String>;
-            for (var i = 0; i < keys.size(); i++) {
-                var v = d[keys[i]];
-                if (v != null) {
-                    result[keys[i]] = v;
-                }
-            }
+            result = SwimfoFetch.pickKeys(data as Lang.Dictionary);
             result["lastUpdate"] = Time.now().value();
         } else {
             // On error, preserve location name so the view shows something

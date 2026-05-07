@@ -29,6 +29,19 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
             return;
         }
 
+        // After a location change Storage holds a stub with syncRequired set
+        // until the next background fetch lands. Mirror the widget's banner
+        // here so the glance doesn't fall back to showing nothing or stale
+        // numbers from before the location switch.
+        if (data["syncRequired"] == true) {
+            dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(textX, h / 3, Graphics.FONT_GLANCE,
+                "Bluetooth sync", Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.drawText(textX, h * 2 / 3, Graphics.FONT_GLANCE,
+                "vereist", Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+            return;
+        }
+
         // Line 1: tide info (interpolated from live tideTable)
         var parts1 = [] as Lang.Array<Lang.String>;
         var now = Time.now().value();

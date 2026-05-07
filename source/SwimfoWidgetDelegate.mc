@@ -1,7 +1,5 @@
-using Toybox.Background;
+using Toybox.Application;
 using Toybox.Lang;
-using Toybox.System;
-using Toybox.Time;
 using Toybox.WatchUi;
 
 class SwimfoWidgetDelegate extends WatchUi.BehaviorDelegate {
@@ -34,19 +32,12 @@ class SwimfoWidgetDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         if (page == 3) {
-            // Try shortest delay first; CIQ enforces >=5 min since last run.
-            // If that fails, fall back to the 5-min minimum.
-            try {
-                Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1)));
-                _view.setSyncRequested();
-            } catch (e) {
-                try {
-                    Background.registerForTemporalEvent(Time.now().add(new Time.Duration(300)));
-                    _view.setSyncRequested();
-                } catch (e2) {
-                    System.println("Sync not possible: " + e2.getErrorMessage());
-                }
-            }
+            // Foreground refresh — bypasses CIQ's 5-min background-event
+            // floor so the user sees fresh data within seconds instead of
+            // up to 5 minutes from now.
+            var app = Application.getApp() as SwimfoApp;
+            app.startForegroundRefresh();
+            _view.setSyncRequested();
             WatchUi.requestUpdate();
             return true;
         }

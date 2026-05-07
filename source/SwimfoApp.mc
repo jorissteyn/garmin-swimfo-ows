@@ -1,6 +1,7 @@
 using Toybox.Application;
 using Toybox.Application.Storage;
 using Toybox.Background;
+using Toybox.Communications;
 using Toybox.Lang;
 using Toybox.System;
 using Toybox.Time;
@@ -79,6 +80,49 @@ class SwimfoApp extends Application.AppBase {
         var delay = (data == null) ? 5 : 1800;
         Background.registerForTemporalEvent(
             Time.now().add(new Time.Duration(delay)));
+    }
+
+    // ── Foreground refresh ──────────────────────────────────────
+    //
+    // Connect IQ enforces a 5-minute floor between background temporal events,
+    // so a freshly-tapped "sync now" or settings change can otherwise wait
+    // ages before the new data lands. Foreground makeWebRequest has no such
+    // floor, so we fire the GET directly from the App. The App singleton is
+    // long-lived, which keeps the Method receiver alive until the response
+    // arrives. On success Storage gets a full replace; on failure we mirror
+    // onBackgroundData's behaviour and merge `lastError` into the existing
+    // dict so prior values keep rendering.
+
+    function startForegroundRefresh() as Void {
+        var loc = Locations.getSelected();
+        var url = SwimfoFetch.urlFor(loc);
+        System.println("foreground fetch=" + url);
+        Communications.makeWebRequest(
+            url,
+            null,
+            {
+                :method => Communications.HTTP_REQUEST_METHOD_GET,
+                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+            },
+            method(:onForegroundData)
+        );
+    }
+
+    function onForegroundData(code as Lang.Number, data as Lang.Dictionary or Lang.String or Null) as Void {
+        System.println("foreground data=" + code);
+        if (code == 200 && data instanceof Lang.Dictionary) {
+            var result = SwimfoFetch.pickKeys(data as Lang.Dictionary);
+            result["lastUpdate"] = Time.now().value();
+            Storage.setValue("swimfoData", result);
+        } else {
+            var existing = Storage.getValue("swimfoData");
+            if (existing instanceof Lang.Dictionary) {
+                var merged = existing as Lang.Dictionary;
+                merged["lastError"] = code;
+                Storage.setValue("swimfoData", merged);
+            }
+        }
+        WatchUi.requestUpdate();
     }
 
 }
