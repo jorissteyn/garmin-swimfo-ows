@@ -328,7 +328,7 @@ class SwimfoWidgetView extends WatchUi.View {
             airT + "\u00B0C", Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
         dc.drawText(w / 2 + 10, row1 + dc.getFontHeight(Graphics.FONT_MEDIUM) - 8, Graphics.FONT_XTINY,
-            "Air", Graphics.TEXT_JUSTIFY_CENTER);
+            "Lucht", Graphics.TEXT_JUSTIFY_CENTER);
 
         // Wind speed + Beaufort
         dc.setColor(0x88BBDD, Graphics.COLOR_TRANSPARENT);
