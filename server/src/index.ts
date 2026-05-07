@@ -135,7 +135,16 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   const url = `${OPENMETEO_BASE}/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,wind_speed_10m`;
   log(`  weather: GET ${url}`);
   const res = await fetch(url);
-  const body = await res.json() as {
+  // Read text first so an empty body (HTTP 204 / network blip) downgrades
+  // to "no data" instead of crashing the whole /conditions response.
+  const text = await res.text();
+  if (!text) {
+    log(`  weather: empty response (HTTP ${res.status})`);
+    const empty: WeatherResult = { airTemp: null, windSpeed: null };
+    setCache(key, empty);
+    return empty;
+  }
+  const body = JSON.parse(text) as {
     current?: { time?: string; temperature_2m?: number; wind_speed_10m?: number };
   };
 
@@ -278,7 +287,16 @@ async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
     },
     body: JSON.stringify(payload),
   });
-  const body = await res.json() as RwsResponse;
+  // RWS returns HTTP 204 + empty body when the requested station has no
+  // T/OW sensor (e.g. breskens.veerhaven). Treat as "no data" so the
+  // whole /conditions response doesn't 502 on JSON.parse.
+  const text = await res.text();
+  if (!text) {
+    log(`  waterTemp: empty response (HTTP ${res.status})`);
+    setCache(key, {});
+    return {};
+  }
+  const body = JSON.parse(text) as RwsResponse;
 
   const result = parseWaterTemp(body);
   setCache(key, result);

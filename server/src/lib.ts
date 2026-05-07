@@ -45,6 +45,9 @@ export const LOCATIONS: Record<string, Location> = {
     lat: 51.403661,
     lon: 3.550427,
     rwsCode: "breskens.veerhaven",
+    // RWS has tide extremes for the veerhaven gauge but no T/OW sensor —
+    // OphalenLaatsteWaarnemingen returns HTTP 204. Skip the doomed call.
+    waterTemp: false,
   },
   marollegat: {
     name: "Oesterdam",
