@@ -58,6 +58,7 @@ class SwimfoService extends System.ServiceDelegate {
         if (code == 200 && data instanceof Lang.Dictionary) {
             var d = data as Lang.Dictionary;
             var keys = ["locName", "airTemp", "windSpeed", "waterTemp",
+                        "weatherTime", "waterTempTime",
                         "tideTable", "tideTableVerwachting",
                         "moonLabel"] as Lang.Array<Lang.String>;
             for (var i = 0; i < keys.size(); i++) {

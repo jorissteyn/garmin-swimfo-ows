@@ -72,6 +72,11 @@ function setCache<T>(key: string, data: T): void {
 interface WeatherResult {
   airTemp: number | null;
   windSpeed: number | null;
+  // Epoch seconds for the Open-Meteo `current.time` slot. Omitted when the
+  // measurement is older than MAX_MEASUREMENT_AGE_SEC; the watch uses this
+  // both to render "Gemeten op: hh:mm" and to drop values that have aged
+  // past the threshold while the watch was offline.
+  weatherTime?: number;
 }
 
 interface TideExtremum {
@@ -87,6 +92,9 @@ interface TideResult {
 
 interface WaterTempResult {
   waterTemp?: number;
+  // Epoch seconds for the most recent RWS `Tijdstip`. Omitted when the
+  // sensor has gone stale (no fresh reading in the last MAX_MEASUREMENT_AGE_SEC).
+  waterTempTime?: number;
 }
 
 interface ParsedExtremum {
@@ -96,6 +104,11 @@ interface ParsedExtremum {
 }
 
 type ProcesType = "astronomisch" | "verwachting";
+
+// Drop measurements older than 24h. RWS occasionally keeps publishing the
+// last value when a sensor goes offline, and we'd rather show "--" than
+// stale data. Same threshold used watch-side for cached values.
+const MAX_MEASUREMENT_AGE_SEC = 24 * 3600;
 
 // RWS Aquo "Groepering" filter that returns tide extremes (HW/LW) directly.
 // GETETBRKD2 is referenced to NAP and works for all Dutch coastal stations.
@@ -122,12 +135,35 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   const url = `${OPENMETEO_BASE}/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,wind_speed_10m`;
   log(`  weather: GET ${url}`);
   const res = await fetch(url);
-  const body = await res.json() as { current?: { temperature_2m?: number; wind_speed_10m?: number } };
-
-  const result: WeatherResult = {
-    airTemp: body.current?.temperature_2m ?? null,
-    windSpeed: body.current?.wind_speed_10m ?? null,
+  const body = await res.json() as {
+    current?: { time?: string; temperature_2m?: number; wind_speed_10m?: number };
   };
+
+  // Open-Meteo's default `timezone=GMT` returns `current.time` as a naive
+  // ISO8601 in UTC ("YYYY-MM-DDTHH:MM"). Treat as UTC by appending Z.
+  let weatherTime: number | null = null;
+  const timeStr = body.current?.time;
+  if (timeStr) {
+    const parsed = Date.parse(timeStr.endsWith("Z") ? timeStr : timeStr + "Z");
+    if (!Number.isNaN(parsed)) weatherTime = Math.floor(parsed / 1000);
+  }
+
+  const result: WeatherResult = { airTemp: null, windSpeed: null };
+  if (weatherTime == null) {
+    // No timestamp from Open-Meteo: trust their "current" semantics — the
+    // value is by definition the latest 15-min slot, never historical.
+    result.airTemp = body.current?.temperature_2m ?? null;
+    result.windSpeed = body.current?.wind_speed_10m ?? null;
+  } else {
+    const ageSec = Date.now() / 1000 - weatherTime;
+    if (ageSec <= MAX_MEASUREMENT_AGE_SEC) {
+      result.airTemp = body.current?.temperature_2m ?? null;
+      result.windSpeed = body.current?.wind_speed_10m ?? null;
+      result.weatherTime = weatherTime;
+    } else {
+      log(`  weather: dropped — current.time ${Math.round(ageSec)}s old`);
+    }
+  }
   setCache(key, result);
   return result;
 }
@@ -390,10 +426,24 @@ function parseWaterTemp(data: RwsResponse): WaterTempResult {
   const metingen = lijst[0]?.MetingenLijst;
   if (!Array.isArray(metingen) || metingen.length === 0) return {};
 
-  const val = metingen[metingen.length - 1]?.Meetwaarde?.Waarde_Numeriek;
-  if (val == null) return {};
+  const last = metingen[metingen.length - 1];
+  const val = last?.Meetwaarde?.Waarde_Numeriek;
+  const tsStr = last?.Tijdstip;
+  if (val == null || !tsStr) return {};
 
-  return { waterTemp: Math.round(val * 10) / 10 };
+  const parsed = Date.parse(tsStr); // Tijdstip carries an offset; Date.parse handles it.
+  if (Number.isNaN(parsed)) return {};
+  const tsSec = Math.floor(parsed / 1000);
+  const ageSec = Date.now() / 1000 - tsSec;
+  if (ageSec > MAX_MEASUREMENT_AGE_SEC) {
+    log(`  waterTemp: dropped — Tijdstip ${Math.round(ageSec)}s old`);
+    return {};
+  }
+
+  return {
+    waterTemp: Math.round(val * 10) / 10,
+    waterTempTime: tsSec,
+  };
 }
 
 // ── Helpers ──────────────────────────────────────────────────

@@ -9,6 +9,10 @@ using Toybox.WatchUi;
 class SwimfoWidgetView extends WatchUi.View {
 
     hidden const PAGE_COUNT = 5;
+    // Same threshold the server uses to drop stale RWS / Open-Meteo readings.
+    // Applied here too so a long-offline watch (no syncs in >24h) stops
+    // showing yesterday's values as if they were current.
+    hidden const MAX_MEASUREMENT_AGE_SEC = 86400;
     hidden var _page as Lang.Number = 0;
     hidden var _syncRequestedAt as Lang.Number = 0;
 
@@ -256,21 +260,33 @@ class SwimfoWidgetView extends WatchUi.View {
     hidden function drawWaterPage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
         var cy = h / 2 - 10;
+        var fresh = isFresh(data, "waterTempTime");
 
         // Thermometer icon
         dc.setColor(0x4488FF, Graphics.COLOR_TRANSPARENT);
         drawThermometer(dc, w / 2, cy - 30, 20);
 
-        // Temperature value
+        // Temperature value (gated on freshness \u2014 server already drops > 24h
+        // stale RWS readings, but the watch may still hold one if it has been
+        // offline since the last successful sync).
         dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var temp = fmtFloat(data, "waterTemp", "%.1f");
+        var temp = fresh ? fmtFloat(data, "waterTemp", "%.1f") : "--";
         dc.drawText(w / 2, cy + 8, Graphics.FONT_LARGE,
             temp + "\u00B0C", Graphics.TEXT_JUSTIFY_CENTER);
 
         // Label
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, cy + 8 + dc.getFontHeight(Graphics.FONT_LARGE), Graphics.FONT_XTINY,
+        var labelY = cy + 8 + dc.getFontHeight(Graphics.FONT_LARGE);
+        dc.drawText(w / 2, labelY, Graphics.FONT_XTINY,
             "Water", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Measured-at line (only shown when reading is fresh).
+        var measured = fmtMeasuredAt(data, "waterTempTime");
+        if (measured != null) {
+            dc.drawText(w / 2, labelY + dc.getFontHeight(Graphics.FONT_XTINY) + 1,
+                Graphics.FONT_XTINY, measured as Lang.String,
+                Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         // Wave decoration
         dc.setColor(0x4488FF, Graphics.COLOR_TRANSPARENT);
@@ -303,12 +319,15 @@ class SwimfoWidgetView extends WatchUi.View {
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
         var row1 = h * 35 / 100;
         var row2 = h * 55 / 100;
+        // Air and wind share the same Open-Meteo `current.time`, so a single
+        // freshness gate covers both.
+        var fresh = isFresh(data, "weatherTime");
 
         // Air temperature
         dc.setColor(0xFF8800, Graphics.COLOR_TRANSPARENT);
         drawThermometer(dc, w / 3 - 10, row1 + 4, 16);
         dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var airT = fmtFloat(data, "airTemp", "%.1f");
+        var airT = fresh ? fmtFloat(data, "airTemp", "%.1f") : "--";
         dc.drawText(w / 2 + 10, row1 - 8, Graphics.FONT_MEDIUM,
             airT + "\u00B0C", Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
@@ -319,13 +338,20 @@ class SwimfoWidgetView extends WatchUi.View {
         dc.setColor(0x88BBDD, Graphics.COLOR_TRANSPARENT);
         drawWindIcon(dc, w / 3 - 10, row2 + 4, 14);
         dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var wind = fmtFloat(data, "windSpeed", "%.0f");
-        var bft = toBeaufort(data);
+        var wind = fresh ? fmtFloat(data, "windSpeed", "%.0f") : "--";
+        var bft = fresh ? toBeaufort(data) : "--";
         dc.drawText(w / 2 + 10, row2 - 8, Graphics.FONT_MEDIUM,
             wind + " km/h", Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
         dc.drawText(w / 2 + 10, row2 + dc.getFontHeight(Graphics.FONT_MEDIUM) - 8, Graphics.FONT_XTINY,
             "Wind  Bft " + bft, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Measured-at line shared by both rows.
+        var measured = fmtMeasuredAt(data, "weatherTime");
+        if (measured != null) {
+            dc.drawText(w / 2, h * 78 / 100, Graphics.FONT_XTINY,
+                measured as Lang.String, Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     hidden function drawWindIcon(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number,
@@ -472,6 +498,26 @@ class SwimfoWidgetView extends WatchUi.View {
         if (kmh < 103)  { return "10"; }
         if (kmh < 118)  { return "11"; }
         return "12";
+    }
+
+    // ---- Freshness ----
+
+    // True when `tsKey` carries an epoch second value within the last 24h.
+    // Server already drops old readings; this guards the watch-offline case.
+    hidden function isFresh(d as Lang.Dictionary, tsKey as Lang.String) as Lang.Boolean {
+        var ts = d[tsKey];
+        if (!(ts instanceof Lang.Number)) { return false; }
+        var age = Time.now().value() - (ts as Lang.Number);
+        return age >= 0 && age <= MAX_MEASUREMENT_AGE_SEC;
+    }
+
+    // Returns "Gemeten op: hh:mm" (watch-local time) when the timestamp is
+    // present and fresh, else null so callers can omit the line cleanly.
+    hidden function fmtMeasuredAt(d as Lang.Dictionary, tsKey as Lang.String) as Lang.String? {
+        if (!isFresh(d, tsKey)) { return null; }
+        var ts = d[tsKey] as Lang.Number;
+        var g = Gregorian.info(new Time.Moment(ts), Time.FORMAT_SHORT);
+        return "Gemeten op: " + padNum(g.hour) + ":" + padNum(g.min);
     }
 
     // ---- Value helpers ----

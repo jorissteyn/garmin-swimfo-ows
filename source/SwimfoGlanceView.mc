@@ -40,8 +40,12 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
             parts1.add(isRising ? "Opk" : "Afg");
         }
         if (!level.equals("--")) { parts1.add(level + "m"); }
-        var wt = fmtF(data, "waterTemp", "%.0f");
-        if (!wt.equals("--")) { parts1.add("w" + wt + "\u00B0"); }
+        // Same 24h staleness gate as the widget pages \u2014 keeps the glance from
+        // flashing yesterday's numbers if the watch has been offline.
+        if (isGlanceFresh(data, "waterTempTime")) {
+            var wt = fmtF(data, "waterTemp", "%.0f");
+            if (!wt.equals("--")) { parts1.add("w" + wt + "\u00B0"); }
+        }
 
         var line1 = "Zeeland OWS";
         if (parts1.size() > 0) {
@@ -50,10 +54,13 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
 
         // Line 2: weather
         var parts2 = [] as Lang.Array<Lang.String>;
-        var airT = fmtF(data, "airTemp", "%.0f");
-        if (!airT.equals("--")) { parts2.add(airT + "\u00B0"); }
-        var wind = fmtF(data, "windSpeed", "%.0f");
-        if (!wind.equals("--")) { parts2.add(wind + "km/h"); }
+        var weatherFresh = isGlanceFresh(data, "weatherTime");
+        if (weatherFresh) {
+            var airT = fmtF(data, "airTemp", "%.0f");
+            if (!airT.equals("--")) { parts2.add(airT + "\u00B0"); }
+            var wind = fmtF(data, "windSpeed", "%.0f");
+            if (!wind.equals("--")) { parts2.add(wind + "km/h"); }
+        }
 
         var line1X = textX;
         var line1Y = h / 3;
@@ -72,6 +79,14 @@ class SwimfoGlanceView extends WatchUi.GlanceView {
                 joinArr(parts2, " "),
                 Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
         }
+    }
+
+    // Drop measurements older than 24h. Mirrors SwimfoWidgetView.isFresh.
+    hidden function isGlanceFresh(d as Lang.Dictionary, tsKey as Lang.String) as Lang.Boolean {
+        var ts = d[tsKey];
+        if (!(ts instanceof Lang.Number)) { return false; }
+        var age = Time.now().value() - (ts as Lang.Number);
+        return age >= 0 && age <= 86400;
     }
 
     hidden function fmtF(d as Lang.Dictionary, key as Lang.String, fmt as Lang.String) as Lang.String {
