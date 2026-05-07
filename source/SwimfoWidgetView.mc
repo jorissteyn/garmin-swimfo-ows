@@ -63,15 +63,19 @@ class SwimfoWidgetView extends WatchUi.View {
 
         // Error code banner under location name — sync page only so other
         // pages aren't cluttered by a failure on an otherwise-still-valid
-        // cached dataset.
+        // cached dataset. -104 (BLE_HOST_TIMEOUT) is the code Connect IQ
+        // hands back when the phone isn't reachable — usually because BT is
+        // off — so we surface that as the actionable phrasing the user
+        // already knows from the post-settings banner instead of the raw
+        // numeric "Fout: -104".
         if (_page == 3) {
             var errVal = data["lastError"];
             if (errVal != null && errVal instanceof Lang.Number) {
+                var n = errVal as Lang.Number;
+                var msg = (n == -104) ? "Bluetooth sync vereist" : "Fout: " + n.toString();
                 dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(w / 2, h / 8 + dc.getFontHeight(Graphics.FONT_XTINY),
-                    Graphics.FONT_XTINY,
-                    "Fout: " + (errVal as Lang.Number).toString(),
-                    Graphics.TEXT_JUSTIFY_CENTER);
+                    Graphics.FONT_XTINY, msg, Graphics.TEXT_JUSTIFY_CENTER);
             }
         }
 
