@@ -71,16 +71,24 @@ class SwimfoWidgetView extends WatchUi.View {
             }
         }
 
-        if (_page == 0) {
+        // After a location change the Storage holds a stub with syncRequired
+        // until the next background fetch lands. Replace the data pages with
+        // a Bluetooth-sync warning so the user doesn't see "--" everywhere
+        // without context; the settings page (4) stays usable.
+        var syncRequired = (data["syncRequired"] == true);
+
+        if (_page == 4) {
+            drawSettingsPage(dc, w, h, fg, dim);
+        } else if (syncRequired) {
+            drawSyncRequiredBanner(dc, w, h, data);
+        } else if (_page == 0) {
             drawTidePage(dc, w, h, data, fg, dim);
         } else if (_page == 1) {
             drawWaterPage(dc, w, h, data, fg, dim);
         } else if (_page == 2) {
             drawWeatherPage(dc, w, h, data, fg, dim);
-        } else if (_page == 3) {
-            drawSyncPage(dc, w, h, data, fg, dim);
         } else {
-            drawSettingsPage(dc, w, h, fg, dim);
+            drawSyncPage(dc, w, h, data, fg, dim);
         }
 
         drawDots(dc, w, h, dim, fg);
@@ -374,6 +382,29 @@ class SwimfoWidgetView extends WatchUi.View {
         var hint = syncPending ? "Sync gepland..." : "Tik om te verversen";
         dc.drawText(w / 2, h * 3 / 4, Graphics.FONT_XTINY,
             hint, Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // ---- Sync-required banner (shown on data pages after a location change) ----
+
+    hidden function drawSyncRequiredBanner(dc as Graphics.Dc, w as Lang.Number,
+            h as Lang.Number, data as Lang.Dictionary) as Void {
+        var titleH = dc.getFontHeight(Graphics.FONT_TINY);
+        dc.setColor(0xDD4400, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, h * 4 / 10 - titleH / 2, Graphics.FONT_TINY,
+            "Bluetooth sync", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(w / 2, h * 4 / 10 + titleH / 2, Graphics.FONT_TINY,
+            "vereist", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Show the upstream error code if the most recent sync attempt failed,
+        // otherwise the generic "scheduled" hint.
+        var hint = "Sync gepland...";
+        var errVal = data["lastError"];
+        if (errVal != null && errVal instanceof Lang.Number) {
+            hint = "Fout: " + (errVal as Lang.Number).toString();
+        }
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, h * 7 / 10, Graphics.FONT_XTINY, hint,
+            Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // ---- Page 4: Settings ----

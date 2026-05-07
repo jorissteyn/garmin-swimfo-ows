@@ -1,4 +1,5 @@
 using Toybox.Application;
+using Toybox.Application.Storage;
 using Toybox.Background;
 using Toybox.Lang;
 using Toybox.System;
@@ -115,6 +116,17 @@ class LocationPickerDelegate extends SwimfoSettingsRootDelegateBase {
             var n = id as Lang.Number;
             Application.Properties.setValue("locationId", n);
             _rootItem.setSubLabel(WatchUi.loadResource(Locations.settingsLabelRes(n)) as Lang.String);
+
+            // Replace Storage with a stub for the new location so the widget
+            // doesn't keep showing the previous location's numbers while we
+            // wait for the next background fetch. The widget renders this
+            // stub as a "Bluetooth sync vereist" banner on data pages.
+            var newLoc = Locations.get(n);
+            Storage.setValue("swimfoData", {
+                "locName" => newLoc["name"],
+                "syncRequired" => true,
+            });
+
             // Trigger a sync so the new location's data shows up without
             // waiting for the next 30-min tick. CIQ enforces a 5-min
             // minimum between background runs; ignore the failure if so.
@@ -128,6 +140,7 @@ class LocationPickerDelegate extends SwimfoSettingsRootDelegateBase {
                 }
             }
             WatchUi.popView(WatchUi.SLIDE_RIGHT);
+            WatchUi.requestUpdate();
         }
     }
 
