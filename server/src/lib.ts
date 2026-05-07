@@ -13,8 +13,18 @@ export interface Location {
   waterTemp?: boolean;
 }
 
-// Order matches the watch-side Locations.mc / settings.xml id ordering, so the
-// id ↔ slug mapping is consistent across watch, phone settings, and server.
+// Each entry is keyed by our own URL slug (the segment in
+// `GET /conditions/<slug>`); the `rwsCode` field is the station code we send
+// to RWS as `Locatie.Code`. The two diverge whenever the friendly name we
+// want in URLs differs from the RWS station id (e.g. slug `kats` →
+// `kats.zandkreeksluis`). The slug must match `\w+` (URL path constraint);
+// rwsCode can contain dots. Watch-side `source/Locations.mc` carries only the
+// slug — never the RWS code — and POSTs to /conditions/<slug>; the proxy
+// looks the slug up here and forwards the rwsCode to RWS.
+//
+// Order matches the watch-side Locations.mc / settings.xml id ordering, so
+// the id ↔ slug mapping is consistent across watch, phone settings, and
+// server.
 export const LOCATIONS: Record<string, Location> = {
   vlissingen: {
     name: "Vlissingen",

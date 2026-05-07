@@ -47,7 +47,7 @@ RESOURCES     = $(shell find resources -type f)
 
 .PHONY: help build build-dev release-beta release-prod test run sim-start sim-stop clean keygen \
        server-build server-start server-stop server-run server-debug server-clean \
-       server-list-remote-locations \
+       server-list-remote-locations server-list-supported-locations \
        extremen e
 
 help: ## Show this help
@@ -182,6 +182,9 @@ server-clean: server-stop ## Remove server build artifacts, cache, and logs
 
 server-list-remote-locations: server-build ## List every RWS station that has tide-extrema data
 	@node server/dist/list-remote-locations.js
+
+server-list-supported-locations: server-build ## List the locations the watch app supports (parsed from Locations.mc)
+	@node server/dist/list-supported-locations.js
 
 # ── Helpers ───────────────────────────────────────────────────
 

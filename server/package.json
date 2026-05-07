@@ -10,6 +10,7 @@
     "debug": "node dist/debug.js",
     "debug-tide": "node dist/debug-tide.js",
     "list-remote-locations": "node dist/list-remote-locations.js",
+    "list-supported-locations": "node dist/list-supported-locations.js",
     "check-response": "node dist/check-response.js",
     "dev": "tsx src/index.ts",
     "clean": "rm -rf dist"

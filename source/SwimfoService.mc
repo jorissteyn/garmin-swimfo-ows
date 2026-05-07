@@ -37,7 +37,7 @@ class SwimfoService extends System.ServiceDelegate {
         Background.registerForTemporalEvent(Time.now().add(new Time.Duration(1800)));
 
         var loc = Locations.getSelected();
-        var url = serverBase() + "/conditions/" + loc["rwsCode"];
+        var url = serverBase() + "/conditions/" + loc["locationSlug"];
         System.println("fetch=" + url);
 
         Communications.makeWebRequest(

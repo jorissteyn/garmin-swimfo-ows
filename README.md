@@ -61,6 +61,15 @@ Simulator captures:
 | Ossenisse     | ossenisse              | Westerschelde              |                              |
 | Terneuzen     | terneuzen              | Westerschelde              | no water temp sensor (`--°C`)|
 
+**Slug vs RWS station code.** Each location has two ids: a *slug* we control
+(used as the URL path segment `/conditions/<slug>` and as the watch-side
+`locationSlug` field) and the *RWS station code* the proxy sends upstream as
+`Locatie.Code`. Most are identical (`vlissingen`, `ossenisse`, `terneuzen`);
+they diverge when the friendly URL we want differs from the station id RWS
+publishes data under (Kats → `kats.zandkreeksluis`, Breskens →
+`breskens.veerhaven`, Oranjeplaat → `arnemuiden.oranjeplaat`). The slug-to-code
+mapping lives in `server/src/lib.ts`; the watch only ever knows the slug.
+
 The Oosterschelde temperature sensor at Yerseke (the obvious-sounding choice) has been offline since 1981 — RWS still happily returns 1.0 °C from a mercury thermometer from that year. Marollegat is the nearest site with a live NKE CT sensor reporting every ~10 minutes; the watch labels that location "Oesterdam" since that's the nearest landmark most swimmers know.
 
 The Veerse Meer has been a closed, non-tidal lake since the Veerse Gatdam was built in 1961 (water level is now managed via the Katse Heule). RWS publishes no astronomical tide predictions for Oranjeplaat, so the tide pages show "N/A" — water temp and weather work as usual.

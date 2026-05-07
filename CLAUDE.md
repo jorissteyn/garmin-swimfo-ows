@@ -85,8 +85,24 @@ Configured via `server/.env` (copy from `.env.example`).
 ## Locations
 
 Defined in two places (keep in sync):
-- `source/Locations.mc` — watch-side (name, lat/lon, rwsCode)
-- `server/src/lib.ts` — server-side LOCATIONS map (name, lat, lon, rwsCode)
+- `source/Locations.mc` — watch-side (name, lat/lon, locationSlug)
+- `server/src/lib.ts` — server-side LOCATIONS map (slug → name, lat, lon, rwsCode)
+
+### Slug vs rwsCode
+
+We maintain our own location ids:
+
+- **Slug** — our id, used as the URL path segment (`GET /conditions/<slug>`)
+  and as the `locationSlug` field on the watch. Must match `\w+` (no dots).
+  Stable, owned by us.
+- **rwsCode** — the value the proxy sends to RWS as `Locatie.Code`. May
+  contain dots (e.g. `kats.zandkreeksluis`). Owned by RWS.
+
+For most stations they're the same string (`vlissingen`, `ossenisse`,
+`terneuzen`). They diverge when we want a friendlier URL than the real
+station id, or when the RWS station that has the data isn't named after
+the swimming spot — see Kats, Breskens, Oranjeplaat below. The watch
+never sees the rwsCode; only `server/src/lib.ts` knows the mapping.
 
 Current locations (id order matches `Locations.mc`, `settings.xml`, and the
 server `LOCATIONS` map):
@@ -98,7 +114,7 @@ server `LOCATIONS` map):
 - Ossenisse (id 5): rwsCode `ossenisse` (Westerschelde; tide + water temp both live)
 - Terneuzen (id 6): rwsCode `terneuzen`. No live T/OW sensor — `waterTemp: false` in server LOCATIONS skips the RWS temp fetch; watch shows `--°C` on water page.
 
-Server LOCATIONS keys are URL slugs (must match regex `\w+`); `rwsCode` is sent to RWS as `Locatie.Code` and may contain dots (e.g. `arnemuiden.oranjeplaat`). Watch `rwsCode` must equal the server URL slug (not the RWS code) since it's embedded in the request path.
+Server LOCATIONS keys are URL slugs (must match regex `\w+`); `rwsCode` is sent to RWS as `Locatie.Code` and may contain dots (e.g. `arnemuiden.oranjeplaat`). Watch `locationSlug` (in `Locations.mc`) is the same URL slug, not the RWS code.
 
 To add a location: add to both Locations.mc and server LOCATIONS, add list entry in `resources/settings/settings.xml`, add string in `resources/strings/strings.xml`.
 
