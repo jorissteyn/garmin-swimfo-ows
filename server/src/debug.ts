@@ -107,23 +107,6 @@ function listCacheFiles(): string[] {
   }
 }
 
-let files = listCacheFiles();
-if (files.length === 0) {
-  const port = process.env.PORT || "31415";
-  console.log(`Cache empty — refreshing vlissingen via http://localhost:${port}...`);
-  try {
-    execSync(`curl -sf http://localhost:${port}/conditions/vlissingen -o /dev/null`);
-  } catch {
-    console.log("Server not reachable. Start it with `make server-start`.");
-    process.exit(0);
-  }
-  files = listCacheFiles();
-  if (files.length === 0) {
-    console.log("Refresh produced no cache entries.");
-    process.exit(0);
-  }
-}
-
 interface LocCacheBucket {
   weather?: CacheTyped<WeatherData>;
   tideAstro?: CacheTyped<TideExtremum[]>;
@@ -131,32 +114,64 @@ interface LocCacheBucket {
   watertemp?: CacheTyped<WaterTempData>;
 }
 
-const byLocation: Record<string, LocCacheBucket> = {};
-for (const file of files) {
-  const raw = fs.readFileSync(path.join(CACHE_DIR, file), "utf8");
-  const entry = JSON.parse(raw);
-  const name = path.basename(file, ".json");
-  const [type, ...rest] = name.split("_");
-  const loc = rest.join("_");
-  if (!byLocation[loc]) byLocation[loc] = {};
-  const bucket = byLocation[loc];
-  if (type === "weather") bucket.weather = { data: entry.data, ts: entry.ts };
-  else if (type === "tideAstro") bucket.tideAstro = { data: entry.data, ts: entry.ts };
-  else if (type === "tideVerw") bucket.tideVerw = { data: entry.data, ts: entry.ts };
-  else if (type === "watertemp") bucket.watertemp = { data: entry.data, ts: entry.ts };
+// Pick the location to inspect: argv[2], $LOCATION, or default "vlissingen".
+// Cache keys are built from `loc.rwsCode` (which can contain dots, e.g.
+// `kats.zandkreeksluis`) — the slug is used here only to look the rwsCode up.
+const slug = (process.argv[2] || process.env.LOCATION || "vlissingen").trim();
+const selectedLoc = LOCATIONS[slug];
+if (!selectedLoc) {
+  console.log(`Unknown location slug: ${slug}`);
+  console.log(`Known: ${Object.keys(LOCATIONS).join(", ")}`);
+  process.exit(1);
+}
+const cacheKey = selectedLoc.rwsCode;
+
+function readBucket(): LocCacheBucket {
+  const bucket: LocCacheBucket = {};
+  for (const file of listCacheFiles()) {
+    const name = path.basename(file, ".json");
+    const [type, ...rest] = name.split("_");
+    if (rest.join("_") !== cacheKey) continue;
+    const raw = fs.readFileSync(path.join(CACHE_DIR, file), "utf8");
+    const entry = JSON.parse(raw);
+    if (type === "weather") bucket.weather = { data: entry.data, ts: entry.ts };
+    else if (type === "tideAstro") bucket.tideAstro = { data: entry.data, ts: entry.ts };
+    else if (type === "tideVerw") bucket.tideVerw = { data: entry.data, ts: entry.ts };
+    else if (type === "watertemp") bucket.watertemp = { data: entry.data, ts: entry.ts };
+  }
+  return bucket;
 }
 
-for (const [loc, types] of Object.entries(byLocation)) {
-  const locName = LOCATIONS[loc]?.name || loc;
-  const weather: WeatherData = types.weather?.data || {};
-  const tideAstro: TideExtremum[] = types.tideAstro?.data || [];
-  const tideVerw: TideExtremum[] = types.tideVerw?.data || [];
-  const watertemp: WaterTempData = types.watertemp?.data || {};
+let bucket = readBucket();
+const isEmpty = !bucket.weather && !bucket.tideAstro && !bucket.tideVerw && !bucket.watertemp;
+if (isEmpty) {
+  const port = process.env.PORT || "31415";
+  console.log(`No cache for ${slug} — refreshing via http://localhost:${port}...`);
+  try {
+    execSync(`curl -sf http://localhost:${port}/conditions/${slug} -o /dev/null`);
+  } catch {
+    console.log("Server not reachable. Start it with `make server-start`.");
+    process.exit(0);
+  }
+  bucket = readBucket();
+  const stillEmpty = !bucket.weather && !bucket.tideAstro && !bucket.tideVerw && !bucket.watertemp;
+  if (stillEmpty) {
+    console.log("Refresh produced no cache entries.");
+    process.exit(0);
+  }
+}
+
+{
+  const locName = selectedLoc.name;
+  const weather: WeatherData = bucket.weather?.data || {};
+  const tideAstro: TideExtremum[] = bucket.tideAstro?.data || [];
+  const tideVerw: TideExtremum[] = bucket.tideVerw?.data || [];
+  const watertemp: WaterTempData = bucket.watertemp?.data || {};
   const latestTs = Math.max(
-    types.weather?.ts || 0,
-    types.tideAstro?.ts || 0,
-    types.tideVerw?.ts || 0,
-    types.watertemp?.ts || 0
+    bucket.weather?.ts || 0,
+    bucket.tideAstro?.ts || 0,
+    bucket.tideVerw?.ts || 0,
+    bucket.watertemp?.ts || 0
   );
 
   console.log(`\n  ${BOLD}${locName.toUpperCase()}${RESET}\n`);

@@ -172,9 +172,9 @@ EXTREMEN_ARG := $(filter extremen e,$(MAKECMDGOALS))
 extremen e:
 	@:
 
-server-debug: server-build ## Refresh cache + print pages; pass [extremen|e] for raw RWS HW/LW dump
+server-debug: server-build ## Refresh cache + print pages; LOCATION= picks slug; pass [extremen|e] for raw RWS HW/LW dump
 	@curl -s http://localhost:$(PORT)/conditions/$(LOCATION) > /dev/null && echo "Refreshed $(LOCATION)" || echo "Server not reachable, showing stale cache"
-	@node server/dist/debug.js
+	@node server/dist/debug.js $(LOCATION)
 	@if [ -n "$(EXTREMEN_ARG)" ]; then echo ""; node server/dist/debug-extremen.js $(LOCATION); fi
 
 server-clean: server-stop ## Remove server build artifacts, cache, and logs
