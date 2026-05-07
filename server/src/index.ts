@@ -258,7 +258,30 @@ async function fetchTide(loc: Location): Promise<TideResult> {
 }
 
 async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
-  const key = `watertemp_${loc.rwsCode}`;
+  // 1. Try the primary station unless the location is flagged as having no
+  //    live sensor. parseWaterTemp drops > 24h-stale readings, so a frozen
+  //    sensor (Kats's 1981 value) ends up as `{}` and we fall through.
+  if (loc.waterTemp !== false) {
+    const primary = await fetchWaterTempForRwsCode(loc.rwsCode);
+    if (primary.waterTemp != null) return primary;
+  }
+  // 2. If the location declares a fallback (e.g. Kats → Marollegat), try
+  //    that station's sensor instead. The fallback caches under its own
+  //    rwsCode key so future requests for the fallback station hit the
+  //    cache directly.
+  if (loc.waterTempFallback) {
+    const fb = LOCATIONS[loc.waterTempFallback];
+    if (fb) {
+      log(`  waterTemp: falling back to ${loc.waterTempFallback} (${fb.rwsCode})`);
+      return fetchWaterTempForRwsCode(fb.rwsCode);
+    }
+    log(`  waterTemp: fallback slug "${loc.waterTempFallback}" not found in LOCATIONS`);
+  }
+  return {};
+}
+
+async function fetchWaterTempForRwsCode(rwsCode: string): Promise<WaterTempResult> {
+  const key = `watertemp_${rwsCode}`;
   const cached = getCached<WaterTempResult>(key);
   if (cached) {
     log("  waterTemp: cache hit");
@@ -266,7 +289,7 @@ async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
   }
 
   const payload = {
-    LocatieLijst: [{ Code: loc.rwsCode }],
+    LocatieLijst: [{ Code: rwsCode }],
     AquoPlusWaarnemingMetadataLijst: [
       {
         AquoMetadata: {
@@ -278,7 +301,7 @@ async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
   };
 
   const url = `${RWS_BASE}/OphalenLaatsteWaarnemingen`;
-  log(`  waterTemp: POST ${url}`);
+  log(`  waterTemp: POST ${url} (${rwsCode})`);
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -504,12 +527,15 @@ const server = http.createServer(async (req, res) => {
   log(`GET /conditions/${code}`);
 
   try {
+    // fetchWaterTemp now handles waterTemp:false internally so the fallback
+    // (e.g. breskens → terneuzen) still gets a chance even when the primary
+    // station has no sensor. Tide stays gated outside since the gate guards
+    // the parallel fan-out across both procesTypes inside fetchTide().
     const hasTide = loc.tide !== false;
-    const hasWaterTemp = loc.waterTemp !== false;
     const [weather, tide, waterTemp] = await Promise.all([
       fetchWeather(loc),
       hasTide ? fetchTide(loc) : Promise.resolve({} as TideResult),
-      hasWaterTemp ? fetchWaterTemp(loc) : Promise.resolve({} as WaterTempResult),
+      fetchWaterTemp(loc),
     ]);
 
     const result: Record<string, unknown> = {

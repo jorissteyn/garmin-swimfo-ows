@@ -11,6 +11,12 @@ export interface Location {
   // Some RWS stations don't have a live T/OW sensor (e.g. Terneuzen).
   // Default: true.
   waterTemp?: boolean;
+  // Slug of another LOCATIONS entry whose water-temp reading should stand in
+  // when this station has no usable value — either no sensor (waterTemp:
+  // false / HTTP 204) or only a stale frozen reading the 24h gate drops.
+  // Common in Zeeland: a tide gauge without a T/OW probe near a swim spot
+  // worth labelling on the watch.
+  waterTempFallback?: string;
 }
 
 // Each entry is keyed by our own URL slug (the segment in
@@ -39,6 +45,9 @@ export const LOCATIONS: Record<string, Location> = {
     // RWS publishes Oosterschelde tide extremes under the lock-side station
     // `kats.zandkreeksluis`; there is no plain "kats" station with tide data.
     rwsCode: "kats.zandkreeksluis",
+    // Kats's T/OW reading is a frozen 1981 value — fall back to Marollegat,
+    // the nearest sensor that actually publishes live readings.
+    waterTempFallback: "marollegat",
   },
   breskens: {
     name: "Breskens",
@@ -46,8 +55,10 @@ export const LOCATIONS: Record<string, Location> = {
     lon: 3.550427,
     rwsCode: "breskens.veerhaven",
     // RWS has tide extremes for the veerhaven gauge but no T/OW sensor —
-    // OphalenLaatsteWaarnemingen returns HTTP 204. Skip the doomed call.
+    // OphalenLaatsteWaarnemingen returns HTTP 204. Fall back to Vlissingen
+    // across the Westerschelde, which has a live sensor.
     waterTemp: false,
+    waterTempFallback: "vlissingen",
   },
   marollegat: {
     name: "Oesterdam",
