@@ -47,6 +47,7 @@ RESOURCES     = $(shell find resources -type f)
 
 .PHONY: help build build-dev release-beta release-prod test run sim-start sim-stop clean keygen \
        server-build server-start server-stop server-run server-debug server-clean \
+       server-list-remote-locations \
        extremen e
 
 help: ## Show this help
@@ -178,6 +179,9 @@ server-debug: server-build ## Refresh cache + print pages; pass [extremen|e] for
 
 server-clean: server-stop ## Remove server build artifacts, cache, and logs
 	rm -rf server/node_modules server/dist server/cache server/logs server/.pid
+
+server-list-remote-locations: server-build ## List every RWS station that has tide-extrema data
+	@node server/dist/list-remote-locations.js
 
 # ── Helpers ───────────────────────────────────────────────────
 
