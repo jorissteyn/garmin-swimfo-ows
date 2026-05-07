@@ -259,38 +259,34 @@ class SwimfoWidgetView extends WatchUi.View {
 
     hidden function drawWaterPage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
-        var cy = h / 2 - 10;
         var fresh = isFresh(data, "waterTempTime");
 
-        // Thermometer icon
-        dc.setColor(0x4488FF, Graphics.COLOR_TRANSPARENT);
-        drawThermometer(dc, w / 2, cy - 30, 20);
-
-        // Temperature value (gated on freshness \u2014 server already drops > 24h
-        // stale RWS readings, but the watch may still hold one if it has been
-        // offline since the last successful sync).
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var temp = fresh ? fmtFloat(data, "waterTemp", "%.1f") : "--";
-        dc.drawText(w / 2, cy + 8, Graphics.FONT_LARGE,
-            temp + "\u00B0C", Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Label
+        // "Water" label at the top (replaces the thermometer icon \u2014 the wave
+        // and the \u00B0C unit already make the page unambiguous).
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        var labelY = cy + 8 + dc.getFontHeight(Graphics.FONT_LARGE);
-        dc.drawText(w / 2, labelY, Graphics.FONT_XTINY,
+        dc.drawText(w / 2, h * 28 / 100, Graphics.FONT_XTINY,
             "Water", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Measured-at line (only shown when reading is fresh).
+        // Temperature value, vertically centred. Gated on freshness \u2014 server
+        // already drops > 24h stale RWS readings, but the watch may still
+        // hold one from before going offline.
+        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+        var temp = fresh ? fmtFloat(data, "waterTemp", "%.1f") : "--";
+        dc.drawText(w / 2, h / 2, Graphics.FONT_LARGE,
+            temp + "\u00B0C",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Wave decoration sits where the "Water" label used to live.
+        dc.setColor(0x4488FF, Graphics.COLOR_TRANSPARENT);
+        drawWave(dc, w / 2, h * 70 / 100, w / 2);
+
+        // "Gemeten op: hh:mm" at the bottom (only when reading is fresh).
         var measured = fmtMeasuredAt(data, "waterTempTime");
         if (measured != null) {
-            dc.drawText(w / 2, labelY + dc.getFontHeight(Graphics.FONT_XTINY) + 1,
-                Graphics.FONT_XTINY, measured as Lang.String,
-                Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, h * 80 / 100, Graphics.FONT_XTINY,
+                measured as Lang.String, Graphics.TEXT_JUSTIFY_CENTER);
         }
-
-        // Wave decoration
-        dc.setColor(0x4488FF, Graphics.COLOR_TRANSPARENT);
-        drawWave(dc, w / 2, h * 3 / 4, w / 2);
     }
 
     hidden function drawThermometer(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number,
