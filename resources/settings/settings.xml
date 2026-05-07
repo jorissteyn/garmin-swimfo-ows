@@ -2,10 +2,12 @@
     <setting propertyKey="@Properties.locationId" title="@Strings.settingLocation">
         <settingConfig type="list">
             <listEntry value="0">@Strings.locVlissingen</listEntry>
-            <listEntry value="1">@Strings.locMarollegat</listEntry>
-            <listEntry value="2">@Strings.locOranjeplaat</listEntry>
-            <listEntry value="3">@Strings.locOssenisse</listEntry>
-            <listEntry value="4">@Strings.locTerneuzen</listEntry>
+            <listEntry value="1">@Strings.locKats</listEntry>
+            <listEntry value="2">@Strings.locBreskens</listEntry>
+            <listEntry value="3">@Strings.locMarollegat</listEntry>
+            <listEntry value="4">@Strings.locOranjeplaat</listEntry>
+            <listEntry value="5">@Strings.locOssenisse</listEntry>
+            <listEntry value="6">@Strings.locTerneuzen</listEntry>
         </settingConfig>
     </setting>
     <setting propertyKey="@Properties.procesTypeId" title="@Strings.settingProcesType">

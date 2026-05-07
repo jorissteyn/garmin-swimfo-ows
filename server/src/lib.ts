@@ -13,6 +13,8 @@ export interface Location {
   waterTemp?: boolean;
 }
 
+// Order matches the watch-side Locations.mc / settings.xml id ordering, so the
+// id ↔ slug mapping is consistent across watch, phone settings, and server.
 export const LOCATIONS: Record<string, Location> = {
   vlissingen: {
     name: "Vlissingen",
@@ -20,11 +22,32 @@ export const LOCATIONS: Record<string, Location> = {
     lon: 3.5964,
     rwsCode: "vlissingen",
   },
+  kats: {
+    name: "Kats",
+    lat: 51.543947,
+    lon: 3.865418,
+    // RWS publishes Oosterschelde tide extremes under the lock-side station
+    // `kats.zandkreeksluis`; there is no plain "kats" station with tide data.
+    rwsCode: "kats.zandkreeksluis",
+  },
+  breskens: {
+    name: "Breskens",
+    lat: 51.403661,
+    lon: 3.550427,
+    rwsCode: "breskens.veerhaven",
+  },
   marollegat: {
-    name: "Oosterschelde",
+    name: "Oesterdam",
     lat: 51.479747,
     lon: 4.191958,
     rwsCode: "marollegat",
+  },
+  oranjeplaat: {
+    name: "Oranjeplaat",
+    lat: 51.51661,
+    lon: 3.70014,
+    rwsCode: "arnemuiden.oranjeplaat",
+    tide: false,
   },
   ossenisse: {
     name: "Ossenisse",
@@ -38,13 +61,6 @@ export const LOCATIONS: Record<string, Location> = {
     lon: 3.827,
     rwsCode: "terneuzen",
     waterTemp: false,
-  },
-  oranjeplaat: {
-    name: "Oranjeplaat",
-    lat: 51.51661,
-    lon: 3.70014,
-    rwsCode: "arnemuiden.oranjeplaat",
-    tide: false,
   },
 };
 

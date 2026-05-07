@@ -2,6 +2,8 @@
     <string id="AppName">Zeeland OWS</string>
     <string id="settingLocation">Locatie</string>
     <string id="locVlissingen">Westerschelde (Vlissingen)</string>
+    <string id="locKats">Oosterschelde (Kats)</string>
+    <string id="locBreskens">Westerschelde (Breskens)</string>
     <string id="locMarollegat">Oosterschelde (Oesterdam / Marollegat)</string>
     <string id="locOranjeplaat">Veerse Meer (Oranjeplaat)</string>
     <string id="locOssenisse">Westerschelde (Ossenisse)</string>

@@ -66,10 +66,12 @@ De belangrijkste info — tijrichting, waterhoogte, watertemperatuur, lucht en w
 KIES JE LOCATIE
 
  - Westerschelde (Vlissingen)
- - Westerschelde (Ossenisse)
- - Westerschelde (Terneuzen)
+ - Oosterschelde (Kats)
+ - Westerschelde (Breskens)
  - Oosterschelde (Oesterdam, meetpunt Marollegat)
  - Veerse Meer (Oranjeplaat) - non-tidal
+ - Westerschelde (Ossenisse)
+ - Westerschelde (Terneuzen)
 
 Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je een andere locatie.
 

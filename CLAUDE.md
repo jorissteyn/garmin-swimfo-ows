@@ -88,12 +88,15 @@ Defined in two places (keep in sync):
 - `source/Locations.mc` — watch-side (name, lat/lon, rwsCode)
 - `server/src/lib.ts` — server-side LOCATIONS map (name, lat, lon, rwsCode)
 
-Current locations:
-- Vlissingen: rwsCode `vlissingen`
-- Oesterdam: rwsCode `marollegat` (Yerseke's temperature sensor has been offline since 1981; Marollegat has a live NKE CT sensor. Watch displays "Oesterdam" since that's the more recognizable landmark; settings label is "Oosterschelde (Oesterdam / Marollegat)".)
-- Ossenisse: rwsCode `ossenisse` (Westerschelde; tide + water temp both live)
-- Terneuzen: rwsCode `terneuzen`. No live T/OW sensor — `waterTemp: false` in server LOCATIONS skips the RWS temp fetch; watch shows `--°C` on water page.
-- Oranjeplaat: rwsCode `arnemuiden.oranjeplaat`, URL slug `oranjeplaat`. Non-tidal (Veerse Meer is closed off since 1961) — `tide: false` in server LOCATIONS disables the RWS tide fetch + moon info. Watch shows "N/A" on tide pages, water temp/weather work normally.
+Current locations (id order matches `Locations.mc`, `settings.xml`, and the
+server `LOCATIONS` map):
+- Vlissingen (id 0): rwsCode `vlissingen`
+- Kats (id 1): rwsCode `kats.zandkreeksluis`, URL slug `kats`. RWS has no plain `kats` station with tide data; the closest is the Zandkreeksluis lock-side station, which carries the Oosterschelde HW/LW.
+- Breskens (id 2): rwsCode `breskens.veerhaven`, URL slug `breskens`. Westerschelde, opposite Vlissingen.
+- Oesterdam (id 3): rwsCode `marollegat` (Yerseke's temperature sensor has been offline since 1981; Marollegat has a live NKE CT sensor. Watch displays "Oesterdam" since that's the more recognizable landmark; settings label is "Oosterschelde (Oesterdam / Marollegat)". Server `name` matches.)
+- Oranjeplaat (id 4): rwsCode `arnemuiden.oranjeplaat`, URL slug `oranjeplaat`. Non-tidal (Veerse Meer is closed off since 1961) — `tide: false` in server LOCATIONS disables the RWS tide fetch + moon info. Watch shows "N/A" on tide pages, water temp/weather work normally.
+- Ossenisse (id 5): rwsCode `ossenisse` (Westerschelde; tide + water temp both live)
+- Terneuzen (id 6): rwsCode `terneuzen`. No live T/OW sensor — `waterTemp: false` in server LOCATIONS skips the RWS temp fetch; watch shows `--°C` on water page.
 
 Server LOCATIONS keys are URL slugs (must match regex `\w+`); `rwsCode` is sent to RWS as `Locatie.Code` and may contain dots (e.g. `arnemuiden.oranjeplaat`). Watch `rwsCode` must equal the server URL slug (not the RWS code) since it's embedded in the request path.
 
