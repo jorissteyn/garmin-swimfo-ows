@@ -31,23 +31,29 @@ class SwimfoApp extends Application.AppBase {
             return;
         }
         var d = data as Lang.Dictionary;
+        var nowSec = Time.now().value();
         // On failure the service returns {locName, lastError}. Merge the error
         // into existing Storage so the watch keeps rendering the last
         // successful sync — only the error banner and unchanged lastUpdate
         // reflect the failure. A successful sync does a full replace, which
-        // naturally clears any stale lastError.
+        // naturally clears any stale lastError.  lastAttempt is stamped on
+        // both paths so the sync-page "Verversen..." indicator clears on a
+        // failed retry too (lastUpdate-only would leave it stuck).
         if (d["lastError"] != null) {
             var existing = Storage.getValue("swimfoData");
             if (existing instanceof Lang.Dictionary) {
                 var merged = existing as Lang.Dictionary;
                 merged["lastError"] = d["lastError"];
+                merged["lastAttempt"] = nowSec;
                 Storage.setValue("swimfoData", merged);
                 System.println("Error merged, prior data preserved");
             } else {
+                d["lastAttempt"] = nowSec;
                 Storage.setValue("swimfoData", d);
                 System.println("Error stored (no prior data)");
             }
         } else {
+            d["lastAttempt"] = nowSec;
             Storage.setValue("swimfoData", d);
             System.println("Data stored OK");
         }
@@ -110,15 +116,18 @@ class SwimfoApp extends Application.AppBase {
 
     function onForegroundData(code as Lang.Number, data as Lang.Dictionary or Lang.String or Null) as Void {
         System.println("foreground data=" + code);
+        var nowSec = Time.now().value();
         if (code == 200 && data instanceof Lang.Dictionary) {
             var result = SwimfoFetch.pickKeys(data as Lang.Dictionary);
-            result["lastUpdate"] = Time.now().value();
+            result["lastUpdate"] = nowSec;
+            result["lastAttempt"] = nowSec;
             Storage.setValue("swimfoData", result);
         } else {
             var existing = Storage.getValue("swimfoData");
             if (existing instanceof Lang.Dictionary) {
                 var merged = existing as Lang.Dictionary;
                 merged["lastError"] = code;
+                merged["lastAttempt"] = nowSec;
                 Storage.setValue("swimfoData", merged);
             }
         }

@@ -64,7 +64,10 @@ class SwimfoWidgetView extends WatchUi.View {
         // After a location change the Storage holds a stub with syncRequired
         // until the next background fetch lands. Replace the data pages with
         // a Bluetooth-sync warning so the user doesn't see "--" everywhere
-        // without context; the settings page (4) stays usable.
+        // without context. The settings page (4) AND the sync page (3) stay
+        // usable so the user can re-enable BT and tap "Tik om te verversen"
+        // to retry — the syncRequired banner doesn't include a way to
+        // trigger a refresh itself.
         var syncRequired = (data["syncRequired"] == true);
 
         // Error code banner under location name — sync page only so other
@@ -73,9 +76,8 @@ class SwimfoWidgetView extends WatchUi.View {
         // hands back when the phone isn't reachable — usually because BT is
         // off — so we surface that as the actionable phrasing the user
         // already knows from the post-settings banner instead of the raw
-        // numeric "Fout: -104". Suppressed when the syncRequired banner is
-        // about to take over the page so we don't show the same phrase twice.
-        if (_page == 3 && !syncRequired) {
+        // numeric "Fout: -104".
+        if (_page == 3) {
             var errVal = data["lastError"];
             if (errVal != null && errVal instanceof Lang.Number) {
                 var n = errVal as Lang.Number;
@@ -88,16 +90,18 @@ class SwimfoWidgetView extends WatchUi.View {
 
         if (_page == 4) {
             drawSettingsPage(dc, w, h, fg, dim);
+        } else if (_page == 3) {
+            // Sync page is reachable even during syncRequired so the user can
+            // retry after re-enabling BT.
+            drawSyncPage(dc, w, h, data, fg, dim);
         } else if (syncRequired) {
             drawSyncRequiredBanner(dc, w, h, data);
         } else if (_page == 0) {
             drawTidePage(dc, w, h, data, fg, dim);
         } else if (_page == 1) {
             drawWaterPage(dc, w, h, data, fg, dim);
-        } else if (_page == 2) {
-            drawWeatherPage(dc, w, h, data, fg, dim);
         } else {
-            drawSyncPage(dc, w, h, data, fg, dim);
+            drawWeatherPage(dc, w, h, data, fg, dim);
         }
 
         drawDots(dc, w, h, dim, fg);
@@ -395,11 +399,15 @@ class SwimfoWidgetView extends WatchUi.View {
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // Hint / status — show "Verversen..." until the foreground fetch lands
+        // Hint / status — show "Verversen..." until the foreground fetch
+        // lands. We compare against `lastAttempt` (bumped on success AND
+        // failure) rather than `lastUpdate` (success only), otherwise a
+        // failed retry would leave the hint stuck at "Verversen..." forever
+        // because lastUpdate never moves.
         var syncPending = false;
         if (_syncRequestedAt > 0) {
-            var lu = data["lastUpdate"];
-            if (lu != null && lu instanceof Lang.Number && (lu as Lang.Number) > _syncRequestedAt) {
+            var la = data["lastAttempt"];
+            if (la != null && la instanceof Lang.Number && (la as Lang.Number) >= _syncRequestedAt) {
                 _syncRequestedAt = 0;
             } else {
                 syncPending = true;
