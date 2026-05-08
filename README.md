@@ -7,45 +7,56 @@ Garmin Connect IQ widget for open water swimming conditions in Zeeland. Shows re
 ## Features
 
 - **Glance view** -- compact summary in the widget carousel: tide direction, water level, water temp, air temp, wind
-- **Tide page** -- rising (Opkomend) or falling (Afgaand) with cosine-interpolated water level in meters (NAP), next high water (HW) or low water (LW) with level and time, springtij/doodtij indicator and moon phase
-- **Tide table** -- tap the tide page to see a scrollable table of all upcoming HW/LW times grouped by date
-- **Water page** -- current sea surface temperature in °C
-- **Weather page** -- air temperature and wind speed with Beaufort scale
-- **Sync page** -- last data sync time, tap to trigger manual refresh
-- **Location selection** -- configurable from the watch or Garmin Connect app
+- **Tide page** -- cosine-interpolated water level in meters (NAP) with up/down arrow, next Vloed (HW) or Eb (LW) with level and time, springtij/doodtij label above. Tap to open the tide table
+- **Tide table** -- scrollable 7-day HW/LW times grouped by date, with a "Getijdetype RWS" header (astronomisch / verwachting)
+- **Water page** -- current sea surface temperature in °C, with "Gemeten op: hh:mm" footer
+- **Weather page** -- air temperature, wind speed in km/h + Beaufort + 16-point Dutch compass direction (NNO, ZZW, …), "Gemeten op" footer
+- **Sync page** -- last data sync time (hh:mm). Tap to trigger an immediate foreground refresh that bypasses Connect IQ's 5-minute background-event floor
+- **Settings page** -- on-watch menu for switching between locations and Getijdetype RWS (Astronomisch / Verwachting) without the phone
+- **Stale-value guard** -- weather and water-temperature readings older than 24h are dropped to `--` rather than displayed as if current
+- **Bluetooth-sync banner** -- when the phone isn't reachable (CIQ error -104) or after a location change, the data pages show "Bluetooth sync vereist" instead of stale numbers
 
 ### Widget pages
 
 ```
 ┌─ Glance ─────────────┐
-│ OPK 1.83m w11°       │
+│ ▲ Opk 1.83m w11°     │
 │ 15° 15km/h           │
 └──────────────────────┘
 
-Page 1: Tide       Page 2: Water
-  VLISSINGEN         VLISSINGEN
-    ▲ 1.83m            10.8°C
-      OPK              Water
-  HW 3.21m 14:32       ~~~~~
-    ● ○ ○ ○            ○ ● ○ ○
+Page 1: Tide          Page 2: Water
+  VLISSINGEN            VLISSINGEN
+   2d tot springtij        Water
+    ▲ 1.83m               10.8°C
+   Vloed om 14:32 3.21m    ~~~~~
+   Tik voor getijdentabel  Gemeten op: 14:32
+    ● ○ ○ ○ ○             ○ ● ○ ○ ○
 
-Page 3: Weather    Page 4: Sync
-  VLISSINGEN         VLISSINGEN
-    15.2°C               ↻
-      Air              22:57
-    15 km/h          10 Apr 2026
-      Wind           Laatste sync
-    ○ ○ ● ○            ○ ○ ○ ●
+Page 3: Weather       Page 4: Sync
+  VLISSINGEN            VLISSINGEN
+    Lucht                Laatste sync
+    15.2°C                  18:15
+    3 Bft                Tik om te verversen
+    15 km/h NNO
+    Gemeten op: 14:32     ○ ○ ○ ● ○
+    ○ ○ ● ○ ○
+
+Page 5: Settings
+  VLISSINGEN
+   Instellingen
+       ...
+   Tik om te openen
+    ○ ○ ○ ○ ●
 ```
 
 ### Screenshots
 
 Simulator captures:
 
-- [Tide](screens/page-1.png) — direction, interpolated level, next HW/LW, springtij/doodtij
+- [Tide](screens/page-1.png) — direction arrow, interpolated level, next Vloed/Eb, springtij/doodtij
 - [Tide table](screens/page-1-table.png) — scrollable 7-day HW/LW grouped by date
-- [Water](screens/page-2.png) — current sea surface temperature
-- [Weather](screens/page-3.png) — air temperature, wind speed, Beaufort
+- [Water](screens/page-2.png) — current sea surface temperature with "Gemeten op" footer
+- [Weather](screens/page-3.png) — air temperature, wind in km/h + Beaufort + Dutch compass direction
 - [Sync](screens/page-4.png) — last sync time, manual refresh
 - [Store cover](screens/cover.jpg) — listing artwork
 
@@ -123,12 +134,14 @@ The watch app fetches all data from a local proxy server that aggregates upstrea
 
 Swimfo uses two free public APIs -- no API keys required:
 
-| Data                  | Source                        |
-|----------------------|-------------------------------|
-| Wind speed, air temp | [Open-Meteo](https://open-meteo.com/) |
-| Water level (tide)   | [Rijkswaterstaat DDL](https://rijkswaterstaat.github.io/wm-ws-dl/) |
-| Water temperature    | [Rijkswaterstaat DDL](https://rijkswaterstaat.github.io/wm-ws-dl/) |
-| Moon phase / spring tide | Calculated from lunar synodic cycle (no API) |
+| Data                                | Source                        |
+|-------------------------------------|-------------------------------|
+| Wind speed, wind direction, air temp | [Open-Meteo](https://open-meteo.com/) |
+| Water level (tide)                  | [Rijkswaterstaat DDL](https://rijkswaterstaat.github.io/wm-ws-dl/) |
+| Water temperature                   | [Rijkswaterstaat DDL](https://rijkswaterstaat.github.io/wm-ws-dl/) |
+| Moon phase / spring tide            | Calculated from lunar synodic cycle (no API) |
+
+The server fetches both the **astronomisch** (7-day) and **verwachting** (~1-2 day, weather-adjusted) tide series from RWS in parallel and returns both in the response. The watch picks one to display based on the "Getijdetype RWS" setting; when the preferred series is missing or empty, the other one fills in.
 
 More information about Dutch tides: [Rijkswaterstaat - Getij](https://www.rijkswaterstaat.nl/water/waterdata/getij#ritme-van-eb-en-vloed)
 
@@ -192,8 +205,12 @@ make clean          # remove build artifacts
 make server-run     # run API proxy in foreground (port 31415)
 make server-start   # start API proxy in background
 make server-stop    # stop API proxy
-make server-debug   # fetch fresh data and print cache
+make server-debug   # fetch fresh data and print cache (LOCATION=<slug> to override)
 make server-clean   # remove server artifacts
+
+# Location dev tools
+make server-list-remote-locations     # every RWS station with tide-extrema data
+make server-list-supported-locations  # the locations the watch app supports
 
 # Target a different device
 make DEVICE=venu2 build
@@ -232,7 +249,7 @@ Useful local paths when digging into Connect IQ behavior:
 
 ### Sync error codes
 
-When the background fetch fails, the Sync page shows `Fout: <code>`. The code is either an HTTP status from the server (≥ 400) or a negative Connect IQ error constant. Common values:
+When the background fetch fails, the Sync page shows `Fout: <code>`. The code is either an HTTP status from the server (≥ 400) or a negative Connect IQ error constant. `-104` is a special case: the watch surfaces it as "Bluetooth sync vereist" instead of the raw code, since it almost always means the phone is unreachable. Common values:
 
 | Code   | Symbol                                  | Meaning |
 |--------|-----------------------------------------|---------|
@@ -255,7 +272,8 @@ Full reference: [Toybox.Communications constants](https://developer.garmin.com/c
 
 #### Adding a new location
 
-1. Find the RWS station code at [waterinfo.rws.nl](https://waterinfo.rws.nl/)
-2. Add the station to `source/Locations.mc` and `server/index.js` (LOCATIONS map)
+1. Find the RWS station code at [waterinfo.rws.nl](https://waterinfo.rws.nl/) — or run `make server-list-remote-locations` to dump every station RWS publishes tide extrema for (Naam + Code)
+2. Add the slug + `rwsCode` (+ `lat`/`lon`) to `source/Locations.mc` and the matching entry in `server/src/lib.ts` (the LOCATIONS map). Optional flags on the server side: `tide: false` (non-tidal), `waterTemp: false` (no T/OW sensor), `waterTempFallback: "<slug>"` (fall back to another station's reading)
 3. Add the list entry in `resources/settings/settings.xml`
 4. Add the string in `resources/strings/strings.xml`
+5. Verify with `make server-list-supported-locations` — parses `Locations.mc` + the strings file and prints the full table (id / label / slug / rwsCode / lat / lon)

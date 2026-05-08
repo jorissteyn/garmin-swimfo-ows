@@ -43,25 +43,27 @@ Plain text only — geen markdown. Kopjes worden in HOOFDLETTERS weergegeven.
 
 VOOR DE ZEEUWSE OPEN WATER ZWEMMER
 
-Alles wat je nodig hebt voor een duik in de Westerschelde of Oosterschelde, op je pols.
+Alles wat je nodig hebt voor een zwemtocht in de Westerschelde of Oosterschelde.
 
 GETIJ OP ELK MOMENT
-Zie in één oogopslag of het water opkomt of afgaat, hoe hoog het nu staat, en wanneer het volgende hoogwater of laagwater komt. De getijvoorspelling komt van Rijkswaterstaat. Tussen de meetpunten door wordt het peil vloeiend bijgeschat — ook als je horloge even geen verbinding heeft. Groen pijltje omhoog betekent opkomend water, rood pijltje omlaag betekent afgaand.
+
+Zie in één oogopslag of het water opkomt of afgaat, hoe hoog het nu staat, en wanneer het volgende hoogwater of laagwater komt. De getijvoorspelling komt van Rijkswaterstaat. Tussen de meetpunten door wordt het peil vloeiend bijgeschat — ook als je je telefoon thuis laat. Groen pijltje omhoog betekent opkomend water, rood pijltje omlaag betekent afgaand.
 
 GETIJDENTABEL — 7 DAGEN VOORUIT
-Tik op de getijpagina voor een volledig weekoverzicht van hoog- en laagwater.
 
-SPRINGTIJ EN DOODTIJ
-Springtij (rond nieuwe en volle maan, grootste waterbeweging) en doodtij (rond eerste en laatste kwartier, rustigste tij) worden bij de datum in de tabel getoond en op de hoofdpagina samengevat. Ideaal voor het kiezen van het juiste moment.
+Tik op de getijpagina voor een volledig weekoverzicht van hoog- en laagwater.
 
 WATERTEMPERATUUR
 Actuele watertemperatuur van het gekozen meetpunt.
 
 WEER OP ZWEMHOOGTE
-Luchttemperatuur en windsnelheid, inclusief windkracht op de schaal van Beaufort.
+
+Luchttemperatuur, windsnelheid en windrichting. Windsnelheid wordt ook in Beaufort weergegeven; windrichting op het 16-punts kompas (NNO, ZZW, …).
 
 GLANCE IN JE WIDGET-CARROUSEL
-De belangrijkste info — tijrichting, waterhoogte, watertemperatuur, lucht en wind — samengevat op twee regels, zichtbaar zonder de app te openen. Als je de glance in je carrousel zet, werkt de data elke 30 minuten automatisch bij op de achtergrond.
+
+De belangrijkste info — tijrichting, waterhoogte, watertemperatuur, lucht en wind — samengevat op twee regels, zichtbaar zonder de app te openen.
+Tik op de getijpagina voor een volledig weekoverzicht van hoog- en laagwater.
 
 KIES JE LOCATIE
 
@@ -69,13 +71,28 @@ KIES JE LOCATIE
  - Oosterschelde (Kats)
  - Westerschelde (Breskens)
  - Oosterschelde (Oesterdam, meetpunt Marollegat)
- - Veerse Meer (Oranjeplaat) - non-tidal
+ - Veerse Meer (Oranjeplaat) - geen getij
  - Westerschelde (Ossenisse)
  - Westerschelde (Terneuzen)
 
-Standaard staat de app op Vlissingen; via de Garmin Connect app op je telefoon kies je een andere locatie.
+Zwemmers van Kattendijke-Wemeldinge kiezen het meetpunt bij Kats.
+
+Standaard staat de app op Vlissingen. Je kiest een andere locatie op je horloge of via de Garmin Connect app op je telefoon. Wanneer je van locatie wisselt, is een Bluetooth-verbinding vereist.
+
+GETIJDETYPE — ASTRONOMISCH OF VERWACHTING
+
+Kies tussen de standaard astronomische voorspelling (7 dagen vooruit, puur op basis van de stand van zon en maan) en de Rijkswaterstaat-verwachting (1 à 2 dagen, weersinvloed inbegrepen — wind kan het peil immers flink doen afwijken). Je wisselt direct op je horloge.
+
+SPRINGTIJ EN DOODTIJ
+
+Springtij (rond nieuwe en volle maan, grootste waterbeweging) en doodtij (rond eerste en laatste kwartier, rustigste tij) worden bij de datum in de tabel getoond en op de hoofdpagina samengevat. Ideaal voor het plannen van je zwemtocht.
+
+ALTIJD ACTUEEL
+
+Als je de glance in je carrousel zet, werkt de data elke 30 minuten automatisch bij op de achtergrond. Op de syncpagina zie je het tijdstip van de laatste update. Tik om een verse meting op te halen.
 
 GEGEVENSBRONNEN
+
 - Getij en watertemperatuur: Rijkswaterstaat (waterinfo.rws.nl)
 - Luchttemperatuur en wind: Open-Meteo
 
