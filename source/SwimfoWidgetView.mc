@@ -111,11 +111,9 @@ class SwimfoWidgetView extends WatchUi.View {
 
     hidden function drawTidePage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
-        var cy = h * 4 / 10;
         var now = Time.now().value();
         var picked = Procestype.pickTable(data);
         var pickedTable = picked[0] as Lang.Array?;
-        var pickedLabel = picked[1] as Lang.String?;
         var hasTideData = (pickedTable != null);
         var anchors = (pickedTable != null) ? pickAnchorsFromTable(pickedTable, now) : null;
 
@@ -150,62 +148,68 @@ class SwimfoWidgetView extends WatchUi.View {
         // Non-tidal location (e.g. Veerse Meer): short-circuit with an N/A notice.
         if (!hasTideData && !(data["lastError"] instanceof Lang.Number)) {
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, cy + 8, Graphics.FONT_MEDIUM, "N/A",
-                Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(w / 2, h / 2, Graphics.FONT_MEDIUM, "N/A",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, cy + 8 + dc.getFontHeight(Graphics.FONT_MEDIUM),
+            dc.drawText(w / 2, h / 2 + dc.getFontHeight(Graphics.FONT_MEDIUM) / 2,
                 Graphics.FONT_XTINY, "Geen getij", Graphics.TEXT_JUSTIFY_CENTER);
             return;
         }
 
-        // ProcesType label above the tide info — reflects which RWS series
-        // (astronomisch / verwachting) is actually being shown after fallback.
-        if (pickedLabel != null) {
-            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, h / 8 + dc.getFontHeight(Graphics.FONT_XTINY),
-                Graphics.FONT_XTINY, pickedLabel as Lang.String,
-                Graphics.TEXT_JUSTIFY_CENTER);
-        }
+        // Three lines centred around h/2: moon label one line up, headline
+        // (arrow + water level) dead-centre, next-extreme one line down.
+        var levelText = level + "m";
+        var levelFont = Graphics.FONT_LARGE;
+        var levelCy = h / 2;
+        var labelFont = Graphics.FONT_XTINY;
+        // Moon label uses the smallest system font so it sits visually
+        // subordinate to the headline above the water level. Falls back to
+        // FONT_XTINY metrics on devices where the two alias.
+        var moonFont = Graphics.FONT_SYSTEM_XTINY;
+        var lineGap = (dc.getFontHeight(levelFont) + dc.getFontHeight(labelFont)) / 2;
 
-        // Tide arrow icon
-        var arrowX = w / 2;
-        var arrowY = cy - 12;
-        dc.setColor(isRising ? 0x00AA00 : 0xDD4400, Graphics.COLOR_TRANSPARENT);
-        if (hasDirection) {
-            drawTideArrow(dc, arrowX, arrowY, isRising);
-        }
-
-        // Water level
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var label = "---";
-        if (hasDirection) {
-            label = isRising ? "Opkomend" : "Afgaand";
-        }
-        dc.drawText(w / 2, cy + 8, Graphics.FONT_MEDIUM,
-            level + "m", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, cy + 8 + dc.getFontHeight(Graphics.FONT_MEDIUM), Graphics.FONT_XTINY,
-            label, Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Next tide
-        if (nextEpochTime != null && nextType != null) {
-            var g = Gregorian.info(new Time.Moment(nextEpochTime as Lang.Number), Time.FORMAT_SHORT);
-            var nextTime = padNum(g.hour) + ":" + padNum(g.min);
-            var nextY = h * 7 / 10;
-            dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-            var nextStr = (nextType as Lang.String) + " " + nextLevelStr + "m " + nextTime;
-            dc.drawText(w / 2, nextY, Graphics.FONT_TINY, nextStr,
-                Graphics.TEXT_JUSTIFY_CENTER);
-        }
-
-        // Spring/neap tide indicator
+        // Spring/neap moon label above the headline.
         var moonLabelVal = strVal(data, "moonLabel");
         if (moonLabelVal != null) {
             dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-            var moonY = h * 7 / 10 + dc.getFontHeight(Graphics.FONT_TINY) + 2;
-            dc.drawText(w / 2, moonY, Graphics.FONT_XTINY, moonLabelVal,
-                Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(w / 2, levelCy - lineGap, moonFont, moonLabelVal,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
+
+        // Headline: arrow colour-matched to direction (green up, red down).
+        if (hasDirection) {
+            var levelW = dc.getTextWidthInPixels(levelText, levelFont);
+            var arrowSize = 12;
+            var arrowGap = 10;
+            var totalW = arrowSize * 2 + arrowGap + levelW;
+            var leftX = (w - totalW) / 2;
+            dc.setColor(isRising ? 0x00AA00 : 0xDD4400, Graphics.COLOR_TRANSPARENT);
+            drawTideArrow(dc, leftX + arrowSize, levelCy, isRising, arrowSize);
+            dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(leftX + arrowSize * 2 + arrowGap, levelCy, levelFont, levelText,
+                Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, levelCy, levelFont, levelText,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
+
+        // Next extreme below the headline: "Vloed om 14:32 3.21m" — Vloed =
+        // HW (high water), Eb = LW. White, same XTINY as the moon label.
+        if (nextEpochTime != null && nextType != null) {
+            var g = Gregorian.info(new Time.Moment(nextEpochTime as Lang.Number), Time.FORMAT_SHORT);
+            var nextTime = padNum(g.hour) + ":" + padNum(g.min);
+            var nextWord = (nextType as Lang.String).equals("HW") ? "Vloed" : "Eb";
+            var nextLine = nextWord + " om " + nextTime + " " + nextLevelStr + "m";
+            dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, levelCy + lineGap, labelFont, nextLine,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
+
+        // Tap hint, mirroring the sync and settings pages.
+        dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, h * 3 / 4, Graphics.FONT_XTINY,
+            "Tik voor getijdentabel", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // Pick HW/LW extrema bracketing `now` from the live tideTable forecast.
@@ -255,8 +259,7 @@ class SwimfoWidgetView extends WatchUi.View {
     }
 
     hidden function drawTideArrow(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number,
-            up as Lang.Boolean) as Void {
-        var s = 14;
+            up as Lang.Boolean, s as Lang.Number) as Void {
         if (up) {
             dc.fillPolygon([[x, y - s], [x - s, y + s / 2], [x + s, y + s / 2]] as Lang.Array);
         } else {
@@ -419,29 +422,23 @@ class SwimfoWidgetView extends WatchUi.View {
 
     hidden function drawSyncPage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
-        var cy = h / 2 - 10;
-
+        // Match the data pages: dim XTINY page title at h·28%, value at h/2.
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, cy - dc.getFontHeight(Graphics.FONT_TINY), Graphics.FONT_TINY,
+        dc.drawText(w / 2, h * 28 / 100, Graphics.FONT_XTINY,
             "Laatste sync", Graphics.TEXT_JUSTIFY_CENTER);
 
         var lastUpdate = data["lastUpdate"];
         if (lastUpdate != null && lastUpdate instanceof Lang.Number) {
             var moment = new Time.Moment(lastUpdate as Lang.Number);
-            var g = Gregorian.info(moment, Time.FORMAT_MEDIUM);
-            var timeStr = padNum(g.hour) + ":" + padNum(g.min);
-            var dateStr = g.day + " " + g.month + " " + g.year;
-
+            var g = Gregorian.info(moment, Time.FORMAT_SHORT);
+            var stamp = padNum(g.hour) + ":" + padNum(g.min);
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, cy + 4, Graphics.FONT_MEDIUM, timeStr,
-                Graphics.TEXT_JUSTIFY_CENTER);
-            dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, cy + 4 + dc.getFontHeight(Graphics.FONT_MEDIUM), Graphics.FONT_TINY,
-                dateStr, Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(w / 2, h / 2, Graphics.FONT_SMALL, stamp,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
             dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, cy + 4, Graphics.FONT_SMALL, "Nooit",
-                Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(w / 2, h / 2, Graphics.FONT_SMALL, "Nooit",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
         // Hint / status — show "Verversen..." until the foreground fetch
@@ -500,18 +497,14 @@ class SwimfoWidgetView extends WatchUi.View {
 
     hidden function drawSettingsPage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             fg as Lang.Number, dim as Lang.Number) as Void {
-        // Center the "..." in the gap between the location header (drawn at
-        // h/8 by onUpdate) and the "Instellingen" label below.
-        var locBottom = h / 8 + dc.getFontHeight(Graphics.FONT_XTINY);
-        var instTop = h * 6 / 10;
-        var dotsY = (locBottom + instTop) / 2;
-
+        // Match the data pages: dim XTINY page title at h·28%, value at h/2.
+        dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, h * 28 / 100, Graphics.FONT_XTINY,
+            "Instellingen", Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, dotsY, Graphics.FONT_NUMBER_MEDIUM, "...",
+        dc.drawText(w / 2, h / 2, Graphics.FONT_NUMBER_MEDIUM, "...",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, instTop, Graphics.FONT_TINY, "Instellingen",
-            Graphics.TEXT_JUSTIFY_CENTER);
         dc.drawText(w / 2, h * 3 / 4, Graphics.FONT_XTINY, "Tik om te openen",
             Graphics.TEXT_JUSTIFY_CENTER);
     }
