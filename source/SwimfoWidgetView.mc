@@ -61,14 +61,21 @@ class SwimfoWidgetView extends WatchUi.View {
         dc.drawText(w / 2, h / 8, Graphics.FONT_XTINY, locName,
             Graphics.TEXT_JUSTIFY_CENTER);
 
+        // After a location change the Storage holds a stub with syncRequired
+        // until the next background fetch lands. Replace the data pages with
+        // a Bluetooth-sync warning so the user doesn't see "--" everywhere
+        // without context; the settings page (4) stays usable.
+        var syncRequired = (data["syncRequired"] == true);
+
         // Error code banner under location name — sync page only so other
         // pages aren't cluttered by a failure on an otherwise-still-valid
         // cached dataset. -104 (BLE_HOST_TIMEOUT) is the code Connect IQ
         // hands back when the phone isn't reachable — usually because BT is
         // off — so we surface that as the actionable phrasing the user
         // already knows from the post-settings banner instead of the raw
-        // numeric "Fout: -104".
-        if (_page == 3) {
+        // numeric "Fout: -104". Suppressed when the syncRequired banner is
+        // about to take over the page so we don't show the same phrase twice.
+        if (_page == 3 && !syncRequired) {
             var errVal = data["lastError"];
             if (errVal != null && errVal instanceof Lang.Number) {
                 var n = errVal as Lang.Number;
@@ -78,12 +85,6 @@ class SwimfoWidgetView extends WatchUi.View {
                     Graphics.FONT_XTINY, msg, Graphics.TEXT_JUSTIFY_CENTER);
             }
         }
-
-        // After a location change the Storage holds a stub with syncRequired
-        // until the next background fetch lands. Replace the data pages with
-        // a Bluetooth-sync warning so the user doesn't see "--" everywhere
-        // without context; the settings page (4) stays usable.
-        var syncRequired = (data["syncRequired"] == true);
 
         if (_page == 4) {
             drawSettingsPage(dc, w, h, fg, dim);
@@ -394,7 +395,7 @@ class SwimfoWidgetView extends WatchUi.View {
                 Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // Hint / status — show "Sync gepland..." until data arrives
+        // Hint / status — show "Verversen..." until the foreground fetch lands
         var syncPending = false;
         if (_syncRequestedAt > 0) {
             var lu = data["lastUpdate"];
@@ -405,7 +406,7 @@ class SwimfoWidgetView extends WatchUi.View {
             }
         }
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        var hint = syncPending ? "Sync gepland..." : "Tik om te verversen";
+        var hint = syncPending ? "Verversen..." : "Tik om te verversen";
         dc.drawText(w / 2, h * 3 / 4, Graphics.FONT_XTINY,
             hint, Graphics.TEXT_JUSTIFY_CENTER);
     }
@@ -422,15 +423,24 @@ class SwimfoWidgetView extends WatchUi.View {
             "vereist", Graphics.TEXT_JUSTIFY_CENTER);
 
         // Show the upstream error code if the most recent sync attempt failed,
-        // otherwise the generic "scheduled" hint.
-        var hint = "Sync gepland...";
+        // otherwise the generic "refreshing" hint while the foreground fetch
+        // is still in flight. -104 is suppressed here because the title above
+        // already reads "Bluetooth sync vereist" — no point repeating it.
+        var hint = "Verversen...";
         var errVal = data["lastError"];
         if (errVal != null && errVal instanceof Lang.Number) {
-            hint = "Fout: " + (errVal as Lang.Number).toString();
+            var n = errVal as Lang.Number;
+            if (n == -104) {
+                hint = null;
+            } else {
+                hint = "Fout: " + n.toString();
+            }
         }
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, h * 7 / 10, Graphics.FONT_XTINY, hint,
-            Graphics.TEXT_JUSTIFY_CENTER);
+        if (hint != null) {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, h * 7 / 10, Graphics.FONT_XTINY, hint as Lang.String,
+                Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     // ---- Page 4: Settings ----
