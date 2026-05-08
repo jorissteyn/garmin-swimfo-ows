@@ -31,7 +31,7 @@ module SwimfoFetch {
     // call this after parsing the response so they end up with the same
     // Storage shape.
     function pickKeys(d as Lang.Dictionary) as Lang.Dictionary {
-        var keys = ["locName", "airTemp", "windSpeed", "waterTemp",
+        var keys = ["locName", "airTemp", "windSpeed", "windDir", "waterTemp",
                     "weatherTime", "waterTempTime",
                     "tideTable", "tideTableVerwachting",
                     "moonLabel"] as Lang.Array<Lang.String>;

@@ -72,6 +72,10 @@ function setCache<T>(key: string, data: T): void {
 interface WeatherResult {
   airTemp: number | null;
   windSpeed: number | null;
+  // Wind direction at 10 m, degrees from north (meteorological FROM
+  // convention: 0=N, 90=E, 180=S, 270=W). Watch maps to a Dutch 16-point
+  // compass label. Integer to keep the JSON small.
+  windDir?: number;
   // Epoch seconds for the Open-Meteo `current.time` slot. Omitted when the
   // measurement is older than MAX_MEASUREMENT_AGE_SEC; the watch uses this
   // both to render "Gemeten op: hh:mm" and to drop values that have aged
@@ -132,7 +136,7 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
     return cached;
   }
 
-  const url = `${OPENMETEO_BASE}/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,wind_speed_10m`;
+  const url = `${OPENMETEO_BASE}/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m`;
   log(`  weather: GET ${url}`);
   const res = await fetch(url);
   // Read text first so an empty body (HTTP 204 / network blip) downgrades
@@ -145,7 +149,12 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
     return empty;
   }
   const body = JSON.parse(text) as {
-    current?: { time?: string; temperature_2m?: number; wind_speed_10m?: number };
+    current?: {
+      time?: string;
+      temperature_2m?: number;
+      wind_speed_10m?: number;
+      wind_direction_10m?: number;
+    };
   };
 
   // Open-Meteo's default `timezone=GMT` returns `current.time` as a naive
@@ -158,16 +167,23 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   }
 
   const result: WeatherResult = { airTemp: null, windSpeed: null };
+  const dirRaw = body.current?.wind_direction_10m;
+  const windDir =
+    typeof dirRaw === "number" && Number.isFinite(dirRaw)
+      ? Math.round(dirRaw) % 360
+      : undefined;
   if (weatherTime == null) {
     // No timestamp from Open-Meteo: trust their "current" semantics — the
     // value is by definition the latest 15-min slot, never historical.
     result.airTemp = body.current?.temperature_2m ?? null;
     result.windSpeed = body.current?.wind_speed_10m ?? null;
+    if (windDir != null) result.windDir = windDir;
   } else {
     const ageSec = Date.now() / 1000 - weatherTime;
     if (ageSec <= MAX_MEASUREMENT_AGE_SEC) {
       result.airTemp = body.current?.temperature_2m ?? null;
       result.windSpeed = body.current?.wind_speed_10m ?? null;
+      if (windDir != null) result.windDir = windDir;
       result.weatherTime = weatherTime;
     } else {
       log(`  weather: dropped — current.time ${Math.round(ageSec)}s old`);

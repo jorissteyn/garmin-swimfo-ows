@@ -322,41 +322,86 @@ class SwimfoWidgetView extends WatchUi.View {
 
     hidden function drawWeatherPage(dc as Graphics.Dc, w as Lang.Number, h as Lang.Number,
             data as Lang.Dictionary, fg as Lang.Number, dim as Lang.Number) as Void {
-        var row1 = h * 35 / 100;
-        var row2 = h * 55 / 100;
         // Air and wind share the same Open-Meteo `current.time`, so a single
         // freshness gate covers both.
         var fresh = isFresh(data, "weatherTime");
 
-        // Air temperature
-        dc.setColor(0xFF8800, Graphics.COLOR_TRANSPARENT);
-        drawThermometer(dc, w / 3 - 10, row1 + 4, 16);
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var airT = fresh ? fmtFloat(data, "airTemp", "%.1f") : "--";
-        dc.drawText(w / 2 + 10, row1 - 8, Graphics.FONT_MEDIUM,
-            airT + "\u00B0C", Graphics.TEXT_JUSTIFY_CENTER);
+        // "Lucht" subtitle, sharing the y-position of "Water" on the
+        // adjacent water page so the two pages line up when swiped.
         dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2 + 10, row1 + dc.getFontHeight(Graphics.FONT_MEDIUM) - 8, Graphics.FONT_XTINY,
+        dc.drawText(w / 2, h * 28 / 100, Graphics.FONT_XTINY,
             "Lucht", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Wind speed + Beaufort
-        dc.setColor(0x88BBDD, Graphics.COLOR_TRANSPARENT);
-        drawWindIcon(dc, w / 3 - 10, row2 + 4, 14);
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        var wind = fresh ? fmtFloat(data, "windSpeed", "%.0f") : "--";
-        var bft = fresh ? toBeaufort(data) : "--";
-        dc.drawText(w / 2 + 10, row2 - 8, Graphics.FONT_MEDIUM,
-            wind + " km/h", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2 + 10, row2 + dc.getFontHeight(Graphics.FONT_MEDIUM) - 8, Graphics.FONT_XTINY,
-            "Wind  Bft " + bft, Graphics.TEXT_JUSTIFY_CENTER);
+        // Pair of FONT_MEDIUM values centred symmetrically around h/2 \u2014
+        // mirrors the water page where the single value sits at h/2.
+        var tempCy = h / 2 - 24;
+        var bftCy  = h / 2 + 24;
 
-        // Measured-at line shared by both rows.
+        // Air temperature
+        dc.setColor(0xFF8800, Graphics.COLOR_TRANSPARENT);
+        drawThermometer(dc, w / 3 - 10, tempCy, 16);
+        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+        var airT = fresh ? fmtFloat(data, "airTemp", "%.1f") : "--";
+        dc.drawText(w / 2 + 10, tempCy, Graphics.FONT_MEDIUM,
+            airT + "\u00B0C",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Wind: icon + Beaufort, no separate "Wind" subtitle (the icon
+        // disambiguates). Bft is the headline figure for swimmers (sea
+        // state), km/h + compass go underneath as the precise value.
+        dc.setColor(0x88BBDD, Graphics.COLOR_TRANSPARENT);
+        drawWindIcon(dc, w / 3 - 10, bftCy, 14);
+        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+        var bft = fresh ? toBeaufort(data) : "--";
+        dc.drawText(w / 2 + 10, bftCy, Graphics.FONT_MEDIUM,
+            bft + " Bft",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // "<km/h> <NNO>" subtitle below the Bft value. Compass is omitted
+        // when the server didn't include windDir (older payloads).
+        var wind = fresh ? fmtFloat(data, "windSpeed", "%.0f") : "--";
+        var detail = wind + " km/h";
+        if (fresh) {
+            var dir = compassNl(data);
+            if (dir != null) {
+                detail += " " + (dir as Lang.String);
+            }
+        }
+        dc.setColor(dim, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(w / 2, bftCy + dc.getFontHeight(Graphics.FONT_MEDIUM) / 2,
+            Graphics.FONT_XTINY,
+            detail, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Measured-at footer.
         var measured = fmtMeasuredAt(data, "weatherTime");
         if (measured != null) {
             dc.drawText(w / 2, h * 78 / 100, Graphics.FONT_XTINY,
                 measured as Lang.String, Graphics.TEXT_JUSTIFY_CENTER);
         }
+    }
+
+    // ---- Compass ----
+
+    // Map a meteorological wind direction (degrees the wind is coming FROM,
+    // 0=N, 90=O, 180=Z, 270=W) onto a Dutch 16-point compass label. Returns
+    // null when no value is present so the caller can omit the suffix.
+    hidden function compassNl(d as Lang.Dictionary) as Lang.String? {
+        var v = d["windDir"];
+        var deg = 0.0f;
+        if (v instanceof Lang.Number) { deg = (v as Lang.Number).toFloat(); }
+        else if (v instanceof Lang.Float) { deg = v as Lang.Float; }
+        else { return null; }
+
+        // Normalise into [0, 360) and bucket into 22.5\u00B0 sectors. Monkey C's
+        // `%` is integer-only, so we fold by hand before dividing.
+        while (deg < 0.0f) { deg += 360.0f; }
+        while (deg >= 360.0f) { deg -= 360.0f; }
+        var idx = ((deg + 11.25f) / 22.5f).toNumber() % 16;
+        var labels = ["N", "NNO", "NO", "ONO",
+                      "O", "OZO", "ZO", "ZZO",
+                      "Z", "ZZW", "ZW", "WZW",
+                      "W", "WNW", "NW", "NNW"] as Lang.Array<Lang.String>;
+        return labels[idx];
     }
 
     hidden function drawWindIcon(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number,
