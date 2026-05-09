@@ -7,7 +7,7 @@ Garmin Connect IQ widget for open water swimming conditions in Zeeland. Shows re
 ## Features
 
 - **Glance view** -- compact summary in the widget carousel: tide direction, water level, water temp, air temp, wind
-- **Tide page** -- cosine-interpolated water level in meters (NAP) with up/down arrow, next Vloed (HW) or Eb (LW) with level and time, springtij/doodtij label above. Tap to open the tide table
+- **Tide page** -- cosine-interpolated water level in meters (NAP) with up/down arrow, next HW or LW with level and time, springtij/doodtij label above. Tap to open the tide table
 - **Tide table** -- scrollable 7-day HW/LW times grouped by date, with a "Getijdetype RWS" header (astronomisch / verwachting)
 - **Water page** -- current sea surface temperature in °C, with "Gemeten op: hh:mm" footer
 - **Weather page** -- air temperature, wind speed in km/h + Beaufort + 16-point Dutch compass direction (NNO, ZZW, …), "Gemeten op" footer
@@ -28,7 +28,7 @@ Page 1: Tide          Page 2: Water
   VLISSINGEN            VLISSINGEN
    2d tot springtij        Water
     ▲ 1.83m               10.8°C
-   Vloed om 14:32 3.21m    ~~~~~
+   HW om 14:32 3.21m       ~~~~~
    Tik voor getijdentabel  Gemeten op: 14:32
     ● ○ ○ ○ ○             ○ ● ○ ○ ○
 
@@ -53,11 +53,13 @@ Page 5: Settings
 
 Simulator captures:
 
-- [Tide](screens/page-1.png) — direction arrow, interpolated level, next Vloed/Eb, springtij/doodtij
+- [Tide](screens/page-1.png) — direction arrow, interpolated level, next HW/LW, springtij/doodtij
 - [Tide table](screens/page-1-table.png) — scrollable 7-day HW/LW grouped by date
 - [Water](screens/page-2.png) — current sea surface temperature with "Gemeten op" footer
 - [Weather](screens/page-3.png) — air temperature, wind in km/h + Beaufort + Dutch compass direction
 - [Sync](screens/page-4.png) — last sync time, manual refresh
+- [Settings page](screens/page-5.png) — on-watch entry point (tap to open)
+- [Settings menu](screens/page-5-settings.png) — switch location and Getijdetype RWS
 - [Store cover](screens/cover.jpg) — listing artwork
 
 ## Supported locations

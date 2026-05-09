@@ -194,13 +194,14 @@ class SwimfoWidgetView extends WatchUi.View {
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
-        // Next extreme below the headline: "Vloed om 14:32 3.21m" — Vloed =
-        // HW (high water), Eb = LW. White, same XTINY as the moon label.
+        // Next extreme below the headline: "HW om 14:32 3.21m". We stick to
+        // the abbreviations because Dutch "vloed" / "eb" name the rising and
+        // falling *periods*, not the moments of high/low water — using them
+        // for the extremum itself is technically inaccurate.
         if (nextEpochTime != null && nextType != null) {
             var g = Gregorian.info(new Time.Moment(nextEpochTime as Lang.Number), Time.FORMAT_SHORT);
             var nextTime = padNum(g.hour) + ":" + padNum(g.min);
-            var nextWord = (nextType as Lang.String).equals("HW") ? "Vloed" : "Eb";
-            var nextLine = nextWord + " om " + nextTime + " " + nextLevelStr + "m";
+            var nextLine = (nextType as Lang.String) + " om " + nextTime + " " + nextLevelStr + "m";
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
             dc.drawText(w / 2, levelCy + lineGap, labelFont, nextLine,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
