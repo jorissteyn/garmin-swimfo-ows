@@ -11,4 +11,8 @@
     <string id="settingProcesType">Getijdetype RWS</string>
     <string id="procesTypeAstronomisch">Astronomisch</string>
     <string id="procesTypeVerwachting">Verwachting</string>
+    <string id="settingShowSwimDirection">Toon startrichting</string>
+    <string id="settingShowSwimDirectionPrompt">Toont een tweede regel op de getijpagina met de aanbevolen startrichting voor het zwemmen met de stroming mee. Alleen beschikbaar voor Vlissingen (Nollehoofd / Gevangentoren) en Kats (K-W / W-K); op andere locaties verandert er niets.</string>
+    <string id="swimDirToggleOn">Aan</string>
+    <string id="swimDirToggleOff">Uit</string>
 </strings>

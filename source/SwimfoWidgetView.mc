@@ -1,3 +1,4 @@
+using Toybox.Application;
 using Toybox.Application.Storage;
 using Toybox.Graphics;
 using Toybox.Lang;
@@ -158,15 +159,24 @@ class SwimfoWidgetView extends WatchUi.View {
 
         // Three lines centred around h/2: moon label one line up, headline
         // (arrow + water level) dead-centre, next-extreme one line down.
+        // With showSwimDirection on AND the current location supported, a
+        // fourth line (swimmer icon + start direction) is inserted between
+        // the headline and the next-extreme line — the four lines are then
+        // packed around a slightly lifted centre so they all fit between the
+        // location title and the "Tik voor getijdentabel" hint.
         var levelText = level + "m";
         var levelFont = Graphics.FONT_LARGE;
-        var levelCy = h / 2;
         var labelFont = Graphics.FONT_XTINY;
         // Moon label uses the smallest system font so it sits visually
         // subordinate to the headline above the water level. Falls back to
         // FONT_XTINY metrics on devices where the two alias.
         var moonFont = Graphics.FONT_SYSTEM_XTINY;
         var lineGap = (dc.getFontHeight(levelFont) + dc.getFontHeight(labelFont)) / 2;
+
+        var swimDir = hasDirection ? swimStartDirection(isRising) : null;
+        var showSwim = (swimDir != null);
+        var levelCy = showSwim ? h * 45 / 100 : h / 2;
+        var swimGap = (dc.getFontHeight(levelFont) + dc.getFontHeight(labelFont)) * 5 / 10;
 
         // Spring/neap moon label above the headline.
         var moonLabelVal = strVal(data, "moonLabel");
@@ -194,6 +204,17 @@ class SwimfoWidgetView extends WatchUi.View {
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
+        // Optional swim start-direction line: town name (or "K-W" / "W-K"
+        // abbreviation for Kats) in a smaller, tinted font so it reads as
+        // an annotation on the headline rather than a peer of the HW/LW
+        // forecast line below it.
+        var swimCy = levelCy + swimGap;
+        if (showSwim) {
+            dc.setColor(0x4488FF, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, swimCy, Graphics.FONT_SYSTEM_XTINY, swimDir as Lang.String,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
+
         // Next extreme below the headline: "HW om 14:32 3.21m". We stick to
         // the abbreviations because Dutch "vloed" / "eb" name the rising and
         // falling *periods*, not the moments of high/low water — using them
@@ -202,8 +223,9 @@ class SwimfoWidgetView extends WatchUi.View {
             var g = Gregorian.info(new Time.Moment(nextEpochTime as Lang.Number), Time.FORMAT_SHORT);
             var nextTime = padNum(g.hour) + ":" + padNum(g.min);
             var nextLine = (nextType as Lang.String) + " om " + nextTime + " " + nextLevelStr + "m";
+            var nextCy = showSwim ? swimCy + swimGap : levelCy + lineGap;
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, levelCy + lineGap, labelFont, nextLine,
+            dc.drawText(w / 2, nextCy, labelFont, nextLine,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
@@ -266,6 +288,28 @@ class SwimfoWidgetView extends WatchUi.View {
         } else {
             dc.fillPolygon([[x, y + s], [x - s, y - s / 2], [x + s, y - s / 2]] as Lang.Array);
         }
+    }
+
+    // Start direction for swimming with the current. Only Vlissingen and
+    // Kats have established local conventions; other locations return null
+    // so the caller can omit the line entirely (mirroring the disclaimer in
+    // the settings prompt).
+    hidden function swimStartDirection(isRising as Lang.Boolean) as Lang.String? {
+        if (Application.Properties.getValue("showSwimDirection") != true) {
+            return null;
+        }
+        var raw = Application.Properties.getValue("locationId");
+        var id = (raw instanceof Lang.Number) ? (raw as Lang.Number) : 0;
+        var slug = Locations.get(id)["locationSlug"];
+        if (!(slug instanceof Lang.String)) { return null; }
+        var s = slug as Lang.String;
+        if (s.equals("vlissingen")) {
+            return isRising ? "Nollehoofd" : "Gevangentoren";
+        }
+        if (s.equals("kats")) {
+            return isRising ? "K-W" : "W-K";
+        }
+        return null;
     }
 
     // ---- Page 1: Water temperature ----

@@ -83,6 +83,10 @@ GETIJDETYPE — ASTRONOMISCH OF VERWACHTING
 
 Kies tussen de standaard astronomische voorspelling (7 dagen vooruit, puur op basis van de stand van zon en maan) en de Rijkswaterstaat-verwachting (1 à 2 dagen, weersinvloed inbegrepen — wind kan het peil immers flink doen afwijken). Je wisselt direct op je horloge.
 
+STARTRICHTING (OPTIONEEL)
+
+Zet "Toon startrichting" aan om op de getijpagina te zien welke kant je het beste op kunt zwemmen om met de stroming mee te gaan. Beschikbaar voor Vlissingen (Nollehoofd bij opkomend, Gevangentoren bij afgaand) en Kats (K-W bij opkomend, W-K bij afgaand). Op andere locaties verandert er niets. Standaard staat de optie uit.
+
 SPRINGTIJ EN DOODTIJ
 
 Springtij (rond nieuwe en volle maan, grootste waterbeweging) en doodtij (rond eerste en laatste kwartier, rustigste tij) worden bij de datum in de tabel getoond en op de hoofdpagina samengevat. Ideaal voor het plannen van je zwemtocht.

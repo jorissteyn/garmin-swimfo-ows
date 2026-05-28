@@ -16,4 +16,9 @@
             <listEntry value="1">@Strings.procesTypeVerwachting</listEntry>
         </settingConfig>
     </setting>
+    <setting propertyKey="@Properties.showSwimDirection"
+             title="@Strings.settingShowSwimDirection"
+             prompt="@Strings.settingShowSwimDirectionPrompt">
+        <settingConfig type="boolean" />
+    </setting>
 </settings>

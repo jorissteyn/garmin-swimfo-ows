@@ -12,7 +12,8 @@ Garmin Connect IQ widget for open water swimming conditions in Zeeland. Shows re
 - **Water page** -- current sea surface temperature in °C, with "Gemeten op: hh:mm" footer
 - **Weather page** -- air temperature, wind speed in km/h + Beaufort + 16-point Dutch compass direction (NNO, ZZW, …), "Gemeten op" footer
 - **Sync page** -- last data sync time (hh:mm). Tap to trigger an immediate foreground refresh that bypasses Connect IQ's 5-minute background-event floor
-- **Settings page** -- on-watch menu for switching between locations and Getijdetype RWS (Astronomisch / Verwachting) without the phone
+- **Settings page** -- on-watch menu for switching between locations, Getijdetype RWS (Astronomisch / Verwachting), and the "Toon startrichting" toggle (see below) without the phone
+- **Startrichting (optional)** -- extra line on the tide page suggesting which direction to swim *with* the current. Off by default; enable under Instellingen. Locations with an established local convention: Vlissingen (Nollehoofd at opkomend, Gevangentoren at afgaand) and Kats (K-W at opkomend, W-K at afgaand). Other locations ignore the setting
 - **Stale-value guard** -- weather and water-temperature readings older than 24h are dropped to `--` rather than displayed as if current
 - **Bluetooth-sync banner** -- when the phone isn't reachable (CIQ error -104) or after a location change, the data pages show "Bluetooth sync vereist" instead of stale numbers
 
@@ -24,29 +25,30 @@ Garmin Connect IQ widget for open water swimming conditions in Zeeland. Shows re
 │ 15° 15km/h           │
 └──────────────────────┘
 
-Page 1: Tide          Page 2: Water
+Page 1: Tide          Page 1: Tide (Toon startrichting on)
   VLISSINGEN            VLISSINGEN
-   2d tot springtij        Water
-    ▲ 1.83m               10.8°C
-   HW om 14:32 3.21m       ~~~~~
-   Tik voor getijdentabel  Gemeten op: 14:32
-    ● ○ ○ ○ ○             ○ ● ○ ○ ○
+   2d tot springtij      2d tot springtij
+    ▲ 1.83m               ▲ 1.83m
+   HW om 14:32 3.21m     Nollehoofd
+   Tik voor getijdentabel HW om 14:32 3.21m
+    ● ○ ○ ○ ○            Tik voor getijdentabel
+                          ● ○ ○ ○ ○
 
-Page 3: Weather       Page 4: Sync
+Page 2: Water         Page 3: Weather
   VLISSINGEN            VLISSINGEN
-    Lucht                Laatste sync
-    15.2°C                  18:15
-    3 Bft                Tik om te verversen
-    15 km/h NNO
-    Gemeten op: 14:32     ○ ○ ○ ● ○
-    ○ ○ ● ○ ○
+     Water               Lucht
+    10.8°C               15.2°C
+     ~~~~~               3 Bft
+   Gemeten op: 14:32     15 km/h NNO
+    ○ ● ○ ○ ○            Gemeten op: 14:32
+                          ○ ○ ● ○ ○
 
-Page 5: Settings
-  VLISSINGEN
-   Instellingen
-       ...
-   Tik om te openen
-    ○ ○ ○ ○ ●
+Page 4: Sync          Page 5: Settings
+  VLISSINGEN            VLISSINGEN
+   Laatste sync          Instellingen
+      18:15                  ...
+   Tik om te verversen   Tik om te openen
+    ○ ○ ○ ● ○             ○ ○ ○ ○ ●
 ```
 
 ### Screenshots

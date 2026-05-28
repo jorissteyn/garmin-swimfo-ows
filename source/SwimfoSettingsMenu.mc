@@ -16,11 +16,14 @@ module SwimfoSettings {
         });
         var locTitle = WatchUi.loadResource(Rez.Strings.settingLocation) as Lang.String;
         var procTitle = WatchUi.loadResource(Rez.Strings.settingProcesType) as Lang.String;
+        var swimTitle = WatchUi.loadResource(Rez.Strings.settingShowSwimDirection) as Lang.String;
         var locItem = new WatchUi.MenuItem(locTitle, currentLocationLabel(), :locItem, null);
         var procItem = new WatchUi.MenuItem(procTitle, currentProcesTypeLabel(), :procItem, null);
+        var swimItem = new WatchUi.MenuItem(swimTitle, currentSwimDirectionLabel(), :swimItem, null);
         menu.addItem(locItem);
         menu.addItem(procItem);
-        WatchUi.pushView(menu, new RootDelegate(locItem, procItem), WatchUi.SLIDE_LEFT);
+        menu.addItem(swimItem);
+        WatchUi.pushView(menu, new RootDelegate(locItem, procItem, swimItem), WatchUi.SLIDE_LEFT);
     }
 
     function currentLocationLabel() as Lang.String {
@@ -33,6 +36,12 @@ module SwimfoSettings {
         var id = Procestype.getSelectedId();
         if (id == 1) { return WatchUi.loadResource(Rez.Strings.procesTypeVerwachting) as Lang.String; }
         return WatchUi.loadResource(Rez.Strings.procesTypeAstronomisch) as Lang.String;
+    }
+
+    function currentSwimDirectionLabel() as Lang.String {
+        var on = (Application.Properties.getValue("showSwimDirection") == true);
+        var res = on ? Rez.Strings.swimDirToggleOn : Rez.Strings.swimDirToggleOff;
+        return WatchUi.loadResource(res) as Lang.String;
     }
 }
 
@@ -49,11 +58,14 @@ class RootDelegate extends SwimfoSettingsRootDelegateBase {
 
     hidden var _locItem as WatchUi.MenuItem;
     hidden var _procItem as WatchUi.MenuItem;
+    hidden var _swimItem as WatchUi.MenuItem;
 
-    function initialize(locItem as WatchUi.MenuItem, procItem as WatchUi.MenuItem) {
+    function initialize(locItem as WatchUi.MenuItem, procItem as WatchUi.MenuItem,
+            swimItem as WatchUi.MenuItem) {
         SwimfoSettingsRootDelegateBase.initialize();
         _locItem = locItem;
         _procItem = procItem;
+        _swimItem = swimItem;
     }
 
     function onSelect(item as WatchUi.MenuItem) as Void {
@@ -62,11 +74,21 @@ class RootDelegate extends SwimfoSettingsRootDelegateBase {
             openLocationPicker();
         } else if (id == :procItem) {
             openProcesTypePicker();
+        } else if (id == :swimItem) {
+            toggleSwimDirection();
         }
     }
 
     function onBack() as Void {
         WatchUi.popView(WatchUi.SLIDE_RIGHT);
+    }
+
+    hidden function toggleSwimDirection() as Void {
+        var on = (Application.Properties.getValue("showSwimDirection") == true);
+        Application.Properties.setValue("showSwimDirection", !on);
+        var res = (!on) ? Rez.Strings.swimDirToggleOn : Rez.Strings.swimDirToggleOff;
+        _swimItem.setSubLabel(WatchUi.loadResource(res) as Lang.String);
+        WatchUi.requestUpdate();
     }
 
     hidden function openLocationPicker() as Void {
