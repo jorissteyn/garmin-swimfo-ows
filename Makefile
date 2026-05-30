@@ -1,12 +1,15 @@
 # Swimfo - Garmin Connect IQ Data Field
 # Run `make help` for available targets.
 
+# Use bash for recipes: the sim-start readiness probe relies on bash's
+# /dev/tcp. bash is a superset of the POSIX features the other recipes use.
+SHELL := /bin/bash
+
 # ── Configuration ─────────────────────────────────────────────
 # Override on command line: make DEVICE=venu2_sim build
 
 GARMIN_HOME  ?= $(CURDIR)/.sdk
 MC            = $(GARMIN_HOME)/bin/monkeyc
-SIM           = $(GARMIN_HOME)/bin/connectiq
 DO            = $(GARMIN_HOME)/bin/monkeydo
 
 KEY          ?= developer_key.der
@@ -14,6 +17,20 @@ JUNGLE        = monkey.jungle
 DEVICE       ?= fr265
 OUT_DIR       = bin
 APP_NAME      = ZeelandOWS
+
+# ── Simulator container ───────────────────────────────────────
+# The Connect IQ simulator is a native GTK/WebKit binary that needs the
+# libwebkit2gtk-4.0 series, which rolling distros have dropped (see
+# docker/simulator/Dockerfile). We run it inside an Ubuntu 22.04 container and
+# forward X11 to the host; the SDK and ~/.Garmin device data are bind-mounted.
+# monkeyc/monkeydo stay on the host and reach the simulator over loopback
+# (it listens on 127.0.0.1:SIM_PORT), shared with the container via
+# --network host. So `make run`/`test` are unchanged — only the simulator
+# itself moved into a container.
+DOCKER        ?= docker
+SIM_IMAGE     ?= swimfo-sim
+SIM_CONTAINER ?= swimfo-sim
+SIM_PORT      ?= 1234
 
 # Ensure a writable temp directory (sandbox/read-only /tmp workaround)
 TMP_DIR       = $(CURDIR)/bin/.tmp
@@ -45,7 +62,7 @@ RESOURCES     = $(shell find resources -type f)
 
 # ── Targets ───────────────────────────────────────────────────
 
-.PHONY: help build build-dev release-beta release-prod test run sim-start sim-stop clean keygen \
+.PHONY: help build build-dev release-beta release-prod test run sim-image sim-rebuild sim-start sim-stop clean keygen \
        server-build server-start server-stop server-run server-debug server-clean \
        server-list-remote-locations server-list-supported-locations \
        extremen e
@@ -101,18 +118,52 @@ $(TEST_PRG): $(SOURCES) $(RESOURCES) $(JUNGLE) dev.jungle $(KEY) | $(OUT_DIR)
 run: $(PRG_DEV) | sim-start ## Build dev PRG and run in simulator
 	$(DO) $< $(DEVICE)
 
-sim-start: ## Start the Connect IQ simulator
-	@if ! pgrep -x "simulator" > /dev/null 2>&1; then \
-		echo "Starting simulator..."; \
-		$(SIM) & \
-		sleep 3; \
-	else \
+sim-image: ## Build the simulator container image (auto-runs on first sim-start)
+	@if ! $(DOCKER) image inspect $(SIM_IMAGE) > /dev/null 2>&1; then \
+		echo "Building simulator image $(SIM_IMAGE) (one-time)..."; \
+		$(DOCKER) build -t $(SIM_IMAGE) docker/simulator; \
+	fi
+
+sim-rebuild: ## Force a clean rebuild of the simulator container image
+	$(DOCKER) build --no-cache -t $(SIM_IMAGE) docker/simulator
+
+sim-start: sim-image ## Start the Connect IQ simulator (containerised)
+	@if [ -n "$$($(DOCKER) ps -q -f name=^/$(SIM_CONTAINER)$$)" ]; then \
 		echo "Simulator already running."; \
+	else \
+		$(DOCKER) rm -f $(SIM_CONTAINER) > /dev/null 2>&1 || true; \
+		command -v xhost > /dev/null 2>&1 && xhost +local: > /dev/null 2>&1 || true; \
+		echo "Starting simulator (container)..."; \
+		$(DOCKER) run -d --rm --name $(SIM_CONTAINER) \
+			--network host \
+			--user "$$(id -u):$$(id -g)" \
+			-v /etc/passwd:/etc/passwd:ro \
+			-v /etc/group:/etc/group:ro \
+			-e HOME="$$HOME" \
+			-e DISPLAY="$$DISPLAY" \
+			-v /tmp/.X11-unix:/tmp/.X11-unix \
+			-v "$$HOME/.Garmin:$$HOME/.Garmin" \
+			-v "$(CURDIR):$(CURDIR)" \
+			-w "$(CURDIR)" \
+			$(SIM_IMAGE) \
+			"$(CURDIR)/.sdk/bin/simulator" > /dev/null; \
+		printf "Waiting for simulator on 127.0.0.1:$(SIM_PORT)"; \
+		for i in $$(seq 1 30); do \
+			if (exec 3<>/dev/tcp/127.0.0.1/$(SIM_PORT)) 2>/dev/null; then \
+				exec 3>&- 3<&-; echo " ready."; break; \
+			fi; \
+			if [ -z "$$($(DOCKER) ps -q -f name=^/$(SIM_CONTAINER)$$)" ]; then \
+				echo ""; echo "Simulator container exited. Logs:"; \
+				$(DOCKER) logs $(SIM_CONTAINER) 2>&1 | tail -n 20 || true; \
+				exit 1; \
+			fi; \
+			printf "."; sleep 1; \
+		done; \
 	fi
 
 sim-stop: ## Stop the Connect IQ simulator
-	@if pgrep -x "simulator" > /dev/null 2>&1; then \
-		pkill -x "simulator"; \
+	@if [ -n "$$($(DOCKER) ps -q -f name=^/$(SIM_CONTAINER)$$)" ]; then \
+		$(DOCKER) rm -f $(SIM_CONTAINER) > /dev/null; \
 		echo "Simulator stopped."; \
 	else \
 		echo "Simulator not running."; \

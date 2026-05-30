@@ -17,6 +17,34 @@ Override device: `make DEVICE=venu2 build`
 
 The SDK must be at `.sdk/` (copied from `~/.Garmin/ConnectIQ/Sdks/`). The Makefile sets `_JAVA_OPTIONS` to redirect Java tmpdir into `bin/.tmp` because the system `/tmp` may be read-only.
 
+### Simulator runs in a container
+
+The `simulator` binary is a native GTK/WebKit program linked against the
+`libwebkit2gtk-4.0` / `libjavascriptcoregtk-4.0` / `libsoup-2.4` series, which
+rolling distros (e.g. openSUSE Tumbleweed) have dropped in favour of 4.1 —
+breaking it with `error while loading shared libraries:
+libjavascriptcoregtk-4.0.so.18`. To insulate it from the host distro, the
+simulator runs inside an Ubuntu 22.04 container (`docker/simulator/Dockerfile`)
+with X11 forwarded to the host.
+
+This is transparent: `make sim-start` builds the image on first use and starts
+the container; `make run`/`make test` are unchanged. Only the simulator moved —
+`monkeyc`/`monkeydo` stay on the host (pure Java + a generic native transport)
+and reach the simulator over loopback. The simulator listens on
+`127.0.0.1:1234`; the container uses `--network host` so host-side `monkeydo`
+connects with no changes. The SDK and `~/.Garmin` (device + font data) are
+bind-mounted, and the container runs as the host user, so the image carries
+only runtime libraries and is independent of the SDK version.
+
+```bash
+make sim-start    # build image (first run) + start simulator container
+make sim-stop     # stop + remove the container
+make sim-rebuild  # force a clean rebuild of the image (--no-cache)
+```
+
+Requires Docker with the user in the `docker` group, an X11 display, and
+`xhost` (sim-start runs `xhost +local:` so the container can reach the display).
+
 ## Project structure
 
 ```
