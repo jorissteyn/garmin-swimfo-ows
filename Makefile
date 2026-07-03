@@ -188,14 +188,15 @@ keygen: ## Generate developer key (one-time setup)
 server-build: ## Install server deps and compile TypeScript
 	cd server && npm install && npm run build
 
-server-start: server-build ## Start API proxy server in background
+server-start: server-build ## Start API proxy server in background (logs to server/logs/server.log)
 	@if [ -f server/.pid ] && kill -0 $$(cat server/.pid) 2>/dev/null; then \
 		echo "Server already running (PID $$(cat server/.pid))"; \
 	else \
 		[ -f server/.env ] || cp server/.env.example server/.env; \
-		(cd server && exec node dist/index.js) & \
+		mkdir -p server/logs; \
+		(cd server && exec node dist/index.js >> logs/server.log 2>&1) & \
 		echo $$! > server/.pid; \
-		echo "Server started (PID $$(cat server/.pid))"; \
+		echo "Server started (PID $$(cat server/.pid)), logging to server/logs/server.log"; \
 	fi
 
 server-stop: ## Stop the API proxy server

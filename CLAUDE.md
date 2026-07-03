@@ -150,8 +150,10 @@ To add a location: add to both Locations.mc and server LOCATIONS, add list entry
 
 The proxy server is written in TypeScript (sources in `server/src/`, compiled to `server/dist/` by `tsc`). It runs on port 31415 (configurable via `.env`) and:
 - Aggregates 3 upstream APIs into a single small JSON response
-- Caches responses on disk for 1 hour (configurable via `CACHE_TTL_MS`)
-- Logs all requests to `server/logs/server.log`
+- Caches responses on disk (async fs) for 1 hour (configurable via `CACHE_TTL_MS`)
+- Logs to stdout. In production Cloud Run captures stdout into Cloud Logging (`cloudbuild.yaml` → `logging: CLOUD_LOGGING_ONLY`); `make server-start` redirects stdout to `server/logs/server.log` for local background runs. Set `DUMP_RAW=1` to also dump raw upstream RWS responses into `server/cache/` (off by default — it pretty-prints the full verwachting time series on every tide cache-miss).
+
+The Cloud Run service is deployed with `--max-instances=1 --min-instances=0` (see `cloudbuild.yaml`); CPU (1 vCPU) and concurrency (80) stay at Cloud Run defaults. At this traffic (each watch polls every 30 min; 1h cache) a single instance is plenty and minimizes upstream fetches — the dominant CPU-time cost under request-based billing. Note: the service mounts a Cloud Storage volume (configured on the service, not in `cloudbuild.yaml`), which pins it to the gen2 execution environment; that rules out fractional CPU (`< 1` vCPU), since fractional CPU is gen1-only.
 
 ```bash
 make server-run     # build + foreground

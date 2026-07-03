@@ -22,19 +22,30 @@ const OPENMETEO_BASE =
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || "3600000", 10);
 
 const CACHE_DIR = path.join(__dirname, "..", "cache");
-const LOG_FILE = path.join(__dirname, "..", "logs", "server.log");
+// Dump raw upstream RWS responses to CACHE_DIR for inspection. Off by default:
+// pretty-printing the full verwachting time series (~1000+ 10-min samples) on
+// every tide cache-miss is pure debug overhead in production. Set DUMP_RAW=1
+// to re-enable when investigating an upstream shape change.
+const DUMP_RAW = process.env.DUMP_RAW === "1";
 
 // ── Logging ──────────────────────────────────────────────────
-
-fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+//
+// stdout only. In production Cloud Run captures stdout into Cloud Logging
+// (cloudbuild.yaml → logging: CLOUD_LOGGING_ONLY); locally `make server-start`
+// redirects stdout to server/logs/server.log. We deliberately avoid a
+// synchronous per-line fs.appendFileSync: it blocks the event loop and, under
+// Cloud Run request concurrency, serializes otherwise-independent requests.
 
 function log(msg: string): void {
-  const line = `[${new Date().toISOString()}] ${msg}\n`;
-  process.stdout.write(line);
-  fs.appendFileSync(LOG_FILE, line);
+  process.stdout.write(`[${new Date().toISOString()}] ${msg}\n`);
 }
 
 // ── Cache ────────────────────────────────────────────────────
+//
+// Async fs (fs.promises) so cache reads/writes on the request hot path don't
+// block the event loop. Log lines summarize the payload (key + age + size)
+// rather than serializing it in full — that JSON.stringify was the single
+// largest contributor to both log volume and per-request CPU.
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -43,28 +54,29 @@ interface CacheEntry<T> {
   data: T;
 }
 
-function getCached<T>(key: string): T | null {
+async function getCached<T>(key: string): Promise<T | null> {
   const file = path.join(CACHE_DIR, `${key}.json`);
   try {
-    const raw = fs.readFileSync(file, "utf8");
+    const raw = await fs.promises.readFile(file, "utf8");
     const entry: CacheEntry<T> = JSON.parse(raw);
     const age = Math.floor((Date.now() - entry.ts) / 1000);
     if (Date.now() - entry.ts < CACHE_TTL) {
-      log(`  cache READ  ${file} (age ${age}s) ${JSON.stringify(entry.data)}`);
+      log(`  cache READ  ${key} (age ${age}s)`);
       return entry.data;
     }
-    log(`  cache STALE ${file} (age ${age}s > TTL ${CACHE_TTL / 1000}s)`);
+    log(`  cache STALE ${key} (age ${age}s > TTL ${CACHE_TTL / 1000}s)`);
   } catch (err) {
     const e = err as NodeJS.ErrnoException;
-    log(`  cache MISS  ${file} (${e.code || e.message})`);
+    log(`  cache MISS  ${key} (${e.code || e.message})`);
   }
   return null;
 }
 
-function setCache<T>(key: string, data: T): void {
+async function setCache<T>(key: string, data: T): Promise<void> {
   const file = path.join(CACHE_DIR, `${key}.json`);
-  log(`  cache WRITE ${file} ${JSON.stringify(data)}`);
-  fs.writeFileSync(file, JSON.stringify({ ts: Date.now(), data }));
+  const json = JSON.stringify({ ts: Date.now(), data });
+  await fs.promises.writeFile(file, json);
+  log(`  cache WRITE ${key} (${json.length}B)`);
 }
 
 // ── Types ────────────────────────────────────────────────────
@@ -130,7 +142,7 @@ function tideCacheKey(loc: Location, p: ProcesType): string {
 
 async function fetchWeather(loc: Location): Promise<WeatherResult> {
   const key = `weather_${loc.rwsCode}`;
-  const cached = getCached<WeatherResult>(key);
+  const cached = await getCached<WeatherResult>(key);
   if (cached) {
     log("  weather: cache hit");
     return cached;
@@ -145,7 +157,7 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
   if (!text) {
     log(`  weather: empty response (HTTP ${res.status})`);
     const empty: WeatherResult = { airTemp: null, windSpeed: null };
-    setCache(key, empty);
+    await setCache(key, empty);
     return empty;
   }
   const body = JSON.parse(text) as {
@@ -189,13 +201,13 @@ async function fetchWeather(loc: Location): Promise<WeatherResult> {
       log(`  weather: dropped — current.time ${Math.round(ageSec)}s old`);
     }
   }
-  setCache(key, result);
+  await setCache(key, result);
   return result;
 }
 
 async function fetchTideForProces(loc: Location, p: ProcesType): Promise<TideExtremum[]> {
   const key = tideCacheKey(loc, p);
-  const cached = getCached<TideExtremum[]>(key);
+  const cached = await getCached<TideExtremum[]>(key);
   if (cached) {
     log(`  tide(${p}): cache hit`);
     return cached;
@@ -244,15 +256,17 @@ async function fetchTideForProces(loc: Location, p: ProcesType): Promise<TideExt
   }
   const body = JSON.parse(text) as RwsResponse;
 
-  const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_${p}_raw.json`);
-  fs.writeFileSync(dumpFile, JSON.stringify(body, null, 2));
+  if (DUMP_RAW) {
+    const dumpFile = path.join(CACHE_DIR, `tide_${loc.rwsCode}_${p}_raw.json`);
+    await fs.promises.writeFile(dumpFile, JSON.stringify(body, null, 2));
+  }
 
   const extrema = useGroepering
     ? parseTideExtrema(body)
     : findExtremaFromSeries(body);
   log(`  tide(${p}): ${extrema.length} extrema`);
   const table = buildTideTable(extrema);
-  setCache(key, table);
+  await setCache(key, table);
   return table;
 }
 
@@ -298,7 +312,7 @@ async function fetchWaterTemp(loc: Location): Promise<WaterTempResult> {
 
 async function fetchWaterTempForRwsCode(rwsCode: string): Promise<WaterTempResult> {
   const key = `watertemp_${rwsCode}`;
-  const cached = getCached<WaterTempResult>(key);
+  const cached = await getCached<WaterTempResult>(key);
   if (cached) {
     log("  waterTemp: cache hit");
     return cached;
@@ -332,13 +346,13 @@ async function fetchWaterTempForRwsCode(rwsCode: string): Promise<WaterTempResul
   const text = await res.text();
   if (!text) {
     log(`  waterTemp: empty response (HTTP ${res.status})`);
-    setCache(key, {});
+    await setCache(key, {});
     return {};
   }
   const body = JSON.parse(text) as RwsResponse;
 
   const result = parseWaterTemp(body);
-  setCache(key, result);
+  await setCache(key, result);
   return result;
 }
 
